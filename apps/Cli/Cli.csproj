@@ -6,6 +6,7 @@
     <RootNamespace>Moonlight.Cli</RootNamespace>
     <PublishAot>true</PublishAot>
     <InvariantTimezone>true</InvariantTimezone>
+    <ApplicationIcon>../../media/favicon.ico</ApplicationIcon>
   </PropertyGroup>
 
   <ItemGroup>
