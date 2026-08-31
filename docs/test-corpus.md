@@ -74,7 +74,7 @@ in code. The plan is to run them and capture the intermediate values.
 | `Crypto.Tests` | harness + grammar over all 5945 lines; Keccak; VarInt; 4526 replayed vectors; round-trip for the generators (48 tests) |
 | `Serialization.Tests` | corpus integrity; TxParser and TxHash against 5 real transactions; MerkleTree and BlockParser against block 202612 (22) |
 | `RingCT.Tests` | Pedersen, ECDH, CLSAG sign/verify, two real monero-made CLSAG signatures verified against their rings, and the real Bulletproof+ range proof from the same transaction (45) |
-| `Wallet.Tests` | corpus integrity; Base58, addresses, mnemonic and key derivation — including monero's own published test seed restoring to its published address (31) |
+| `Wallet.Tests` | corpus integrity; Base58, addresses, mnemonic, key derivation and subaddresses — all anchored on the seed monero's own functional tests restore, and the addresses and keys that repository asserts for it (42) |
 | `Integration` | DaemonClient against canned monerod answers, no network (6); plus chain tests that run only when `MOONLIGHT_DAEMON` names a node (2) |
 
 The corpus tests assert the vector files themselves are intact. That is not busywork: a
