@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <AssemblyName>moonlight-tui</AssemblyName>
+    <RootNamespace>Moonlight.Tui</RootNamespace>
+    <PublishAot>true</PublishAot>
+    <InvariantTimezone>true</InvariantTimezone>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Remove="Vendor\**\*.cs" />
+    <ProjectReference Include="..\..\src\Wallet\Wallet.csproj" />
+    <ProjectReference Include="Vendor\TerminalGui\TerminalGui.csproj" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <AssemblyName>Moonlight.RingCT.Tests</AssemblyName>
+    <RootNamespace>Moonlight.RingCT.Tests</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\RingCT\RingCT.csproj" />
+  </ItemGroup>
+
+</Project>

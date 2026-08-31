@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <AssemblyName>moonlight</AssemblyName>
+    <RootNamespace>Moonlight.Cli</RootNamespace>
+    <PublishAot>true</PublishAot>
+    <InvariantTimezone>true</InvariantTimezone>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Wallet\Wallet.csproj" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Needs a reachable monerod; skipped unless MOONLIGHT_STAGENET_RPC is set. -->
+  <PropertyGroup>
+    <AssemblyName>Moonlight.Integration.Tests</AssemblyName>
+    <RootNamespace>Moonlight.Integration.Tests</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Wallet\Wallet.csproj" />
+    <ProjectReference Include="..\..\src\Node\Node.csproj" />
+  </ItemGroup>
+
+</Project>

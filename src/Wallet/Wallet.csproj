@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <AssemblyName>Moonlight.Wallet</AssemblyName>
+    <RootNamespace>Moonlight.Wallet</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\RingCT\RingCT.csproj" />
+    <ProjectReference Include="..\Node\Node.csproj" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,76 @@
+<Project>
+
+  <!-- Terminal.Gui as a compile-in module. Adapted from SharpOS vendor/Terminal.Gui;
+       see VENDORED.md. Requires C# 14 (extension members).
+
+       Driver: MoonlightHost picks it. 'console' (default) uses our System.Console
+       driver in apps/Tui/Drivers; 'sharpos' uses the kernel driver kept below. -->
+
+  <PropertyGroup>
+    <MoonlightHost Condition="'$(MoonlightHost)' == ''">console</MoonlightHost>
+    <!-- Vendored code predates nullable annotations. Our own files opt back in
+         with #nullable enable. -->
+    <Nullable>disable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- SharpOS has no System.Text.Rune; on net8 it exists and collides. -->
+    <Using Include="System.Rune" Alias="Rune" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Replaces NStack. Rune stays; ustring's two uses live in TextExtensions;
+         TypeIdentity answers "same type?" without reflection; StringsShim replaces
+         the resource machinery. -->
+    <Compile Include="$(MSBuildThisFileDirectory)SharpOS\Rune.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)SharpOS\TextExtensions.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)SharpOS\TypeIdentity.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)SharpOS\StringsShim.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)XtermSharp\CharWidth.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- The driver itself is host-neutral: it renders ANSI through Console.Write.
+         Only the screen size differs, and TerminalSize answers for both. -->
+    <Compile Include="$(MSBuildThisFileDirectory)SharpOS\SharpOSDriver.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)SharpOS\TerminalSize.cs" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(MoonlightHost)' == 'sharpos'">
+    <Compile Include="$(MSBuildThisFileDirectory)SharpOS\SharpOSMainLoop.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)SharpOS\SharpOSKeyMap.cs" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(MoonlightHost)' == 'console'">
+    <Compile Include="$(MSBuildThisFileDirectory)Console\ConsoleMainLoop.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Console\ConsoleKeyMap.cs" />
+  </ItemGroup>
+
+  <PropertyGroup Condition="'$(MoonlightHost)' == 'sharpos'">
+    <DefineConstants>$(DefineConstants);SHARPOS</DefineConstants>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Core + Types + Windows + Views. -->
+    <Compile Include="$(MSBuildThisFileDirectory)Terminal.Gui\Core\**\*.cs"
+             Exclude="$(MSBuildThisFileDirectory)Terminal.Gui\Core\Graphs\**\*.cs" />
+
+    <!-- Two files out of Core\Graphs after all: LineView and TextView name
+         Orientation and LineCanvas, and neither knows about GraphView. -->
+    <Compile Include="$(MSBuildThisFileDirectory)Terminal.Gui\Core\Graphs\Orientation.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Terminal.Gui\Core\Graphs\LineCanvas.cs" />
+
+    <Compile Include="$(MSBuildThisFileDirectory)Terminal.Gui\Types\**\*.cs" />
+
+    <!-- FileDialog is out: it holds DirectoryInfo/FileSystemInfo/FileSystemWatcher,
+         which SharpOS has no API for. -->
+    <Compile Include="$(MSBuildThisFileDirectory)Terminal.Gui\Windows\**\*.cs"
+             Exclude="$(MSBuildThisFileDirectory)Terminal.Gui\Windows\FileDialog.cs" />
+
+    <!-- Excluded for what they drag in: TableView wants ADO.NET, TextValidateField
+         wants MaskedTextProvider and Regex, HexView wants a byte-stream reader. -->
+    <Compile Include="$(MSBuildThisFileDirectory)Terminal.Gui\Views\**\*.cs"
+             Exclude="$(MSBuildThisFileDirectory)Terminal.Gui\Views\GraphView.cs;$(MSBuildThisFileDirectory)Terminal.Gui\Views\TableView.cs;$(MSBuildThisFileDirectory)Terminal.Gui\Views\TextValidateField.cs;$(MSBuildThisFileDirectory)Terminal.Gui\Views\HexView.cs" />
+  </ItemGroup>
+
+</Project>

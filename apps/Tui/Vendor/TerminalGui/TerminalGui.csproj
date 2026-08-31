@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Wraps the compile-in module as a library for Moonlight. SharpOS imports
+       TerminalGui.props directly instead; both share the same file list. -->
+  <PropertyGroup>
+    <AssemblyName>Moonlight.Vendor.TerminalGui</AssemblyName>
+    <RootNamespace>Terminal.Gui</RootNamespace>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+  </PropertyGroup>
+
+  <Import Project="TerminalGui.props" />
+
+</Project>

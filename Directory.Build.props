@@ -1,0 +1,34 @@
+<Project>
+
+  <PropertyGroup>
+    <!-- net8.0 target, C# 14 compiler (needs SDK 10 to build; see global.json). -->
+    <TargetFramework>net8.0</TargetFramework>
+    <LangVersion>14</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <EnableNETAnalyzers>true</EnableNETAnalyzers>
+    <AnalysisLevel>latest-recommended</AnalysisLevel>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <Deterministic>true</Deterministic>
+    <ContinuousIntegrationBuild Condition="'$(CI)' == 'true'">true</ContinuousIntegrationBuild>
+  </PropertyGroup>
+
+  <!-- AOT-ready everywhere; PublishAot is set per-app, so the plain build still works. -->
+  <PropertyGroup>
+    <IsAotCompatible>true</IsAotCompatible>
+    <IsTrimmable>true</IsTrimmable>
+    <EnableTrimAnalyzer>true</EnableTrimAnalyzer>
+    <EnableAotAnalyzer>true</EnableAotAnalyzer>
+    <EnableSingleFileAnalyzer>true</EnableSingleFileAnalyzer>
+  </PropertyGroup>
+
+  <!-- Sterile: src/, apps/Cli, apps/Tui. Outside the gate: tests/, apps/Gui.Demo. -->
+  <PropertyGroup>
+    <IsSterile>false</IsSterile>
+    <IsSterile Condition="$([System.String]::Copy('$(MSBuildProjectDirectory)').Replace('\','/').Contains('/src/'))">true</IsSterile>
+    <IsSterile Condition="$([System.String]::Copy('$(MSBuildProjectDirectory)').Replace('\','/').Contains('/apps/Cli'))">true</IsSterile>
+    <IsSterile Condition="$([System.String]::Copy('$(MSBuildProjectDirectory)').Replace('\','/').Contains('/apps/Tui'))">true</IsSterile>
+  </PropertyGroup>
+
+</Project>

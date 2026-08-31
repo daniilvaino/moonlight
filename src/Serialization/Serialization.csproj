@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <AssemblyName>Moonlight.Serialization</AssemblyName>
+    <RootNamespace>Moonlight.Serialization</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Crypto\Crypto.csproj" />
+  </ItemGroup>
+
+</Project>

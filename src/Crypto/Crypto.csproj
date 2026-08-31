@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <AssemblyName>Moonlight.Crypto</AssemblyName>
+    <RootNamespace>Moonlight.Crypto</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Crypto.Ed25519\Crypto.Ed25519.csproj" />
+  </ItemGroup>
+
+</Project>

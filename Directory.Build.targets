@@ -1,0 +1,8 @@
+<Project>
+
+  <Target Name="MoonlightPurityCheck" BeforeTargets="CollectPackageReferences;Build" Condition="'$(IsSterile)' == 'true'">
+    <Error Condition="'@(PackageReference)' != ''"
+           Text="Purity violation in $(MSBuildProjectName): sterile projects allow 0 PackageReference (found @(PackageReference))." />
+  </Target>
+
+</Project>

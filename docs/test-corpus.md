@@ -1,0 +1,69 @@
+# Test corpus
+
+What we have, where it came from, and what it can prove. Vectors before code.
+
+## In the repo — `tests/vectors/`
+
+| file | source | licence | contents |
+|---|---|---|---|
+| `tests.txt` | monero `tests/crypto/` | BSD-3 | 5945 lines, 20 operations, 8.7 MB |
+| `clsag/clsag_tx.json` | monero-oxide | MIT | one CLSAG-signed transaction |
+| `clsag/ring_data.json` | monero-oxide | MIT | 2 rings × 16 members (key + mask) |
+| `blocks/transactions.json` | monero-oxide | MIT | 5 transactions with ids |
+| `blocks/block_202612_transactions.txt` | monero-oxide | MIT | 514 transaction blobs from block 202612 |
+| `addresses/featured_addresses.json` | monero-oxide | MIT | 24 addresses, mainnet/stagenet/testnet |
+
+### tests.txt coverage
+
+| operation | count | | operation | count |
+|---|---:|---|---|---:|
+| `check_ring_signature` | 1024 | | `generate_key_image` | 256 |
+| `check_signature` | 512 | | `derive_secret_key` | 256 |
+| `check_key` | 372 | | `biased_hash_to_ec` | 256 |
+| `hash_to_point` | 371 | | `generate_keys` | 256 |
+| `check_scalar` | 337 | | `random_scalar` | 245 |
+| `secret_key_to_public_key` | 272 | | `derive_key_image_generator` | 200 |
+| `derive_public_key` | 272 | | `point_to_wei_x_y` | 200 |
+| `generate_key_derivation` | 272 | | `derive_view_tag` | 70 |
+| `hash_to_scalar` | 256 | | `check_ge_p3_identity` | 6 |
+| `generate_signature` | 256 | | `generate_ring_signature` | 256 |
+
+`point_to_wei_x_y` and `derive_key_image_generator` are FCMP++ groundwork — nothing to
+implement against them yet, but they are already in the file.
+
+The grammar (which arguments each operation takes, including the three that append an
+expected value only when the preceding boolean is true, and the two ring operations that
+size themselves from a count) is transcribed from the reference runner
+`monero/tests/crypto/main.cpp` into `tests/Crypto.Tests/VectorGrammar.cs`, and every line
+is checked against it.
+
+## Not vectors — reference runners to generate from
+
+No ready-made vector files exist for these layers; the C++ unit tests build their inputs
+in code. The plan is to run them and capture the intermediate values.
+
+| source | for |
+|---|---|
+| `monero/tests/unit_tests/ringct.cpp` | CLSAG sign/verify cases |
+| `monero/tests/unit_tests/bulletproofs_plus.cpp` | BP+ prove/verify, batch, edge sizes |
+| `monero/tests/unit_tests/serialization.cpp` | tx/block round-trips |
+| `monero/tests/unit_tests/epee_serialization.cpp` | Epee portable storage |
+| `monero/tests/unit_tests/cryptonote_format_utils.cpp` | format helpers |
+| `monero/tests/unit_tests/varint.cpp`, `base58.cpp`, `mnemonics.cpp`, `subaddress.cpp` | serialization and wallet basics |
+| `monero-oxide/.../plus/transcript.rs` | BP+ transcript, step by step |
+| `monero-oxide/tests/verify-chain` | the integration idea: parse and verify real chain |
+| skunkworks `clsag`, `pybullet-plus` | **GPL-3 — read only.** Slow but transparent for edge cases |
+
+## Where the tests live
+
+| project | today |
+|---|---|
+| `Crypto.Tests` | harness + grammar over all 5945 lines (10 tests) |
+| `Serialization.Tests` | transaction corpus integrity (2) |
+| `RingCT.Tests` | CLSAG corpus integrity (2) |
+| `Wallet.Tests` | address corpus integrity (2) |
+| `Integration` | empty — stagenet e2e and verify-chain come after the parsers |
+
+The corpus tests assert the vector files themselves are intact. That is not busywork: a
+truncated or reformatted vector file is the one failure mode that makes every later test
+pass for free.

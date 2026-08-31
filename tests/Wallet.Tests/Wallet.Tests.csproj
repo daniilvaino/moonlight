@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <AssemblyName>Moonlight.Wallet.Tests</AssemblyName>
+    <RootNamespace>Moonlight.Wallet.Tests</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Wallet\Wallet.csproj" />
+  </ItemGroup>
+
+</Project>

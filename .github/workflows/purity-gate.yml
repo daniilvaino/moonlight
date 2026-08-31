@@ -1,0 +1,35 @@
+name: purity-gate
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+env:
+  DOTNET_NOLOGO: true
+  CI: true
+
+jobs:
+  purity:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      # Restore the sterile projects so their project.assets.json exists and can be
+      # scanned for native assets. This must also succeed with no network at all.
+      - name: Restore sterile tree
+        run: |
+          dotnet restore src/Wallet/Wallet.csproj
+          dotnet restore apps/Cli/Cli.csproj
+          dotnet restore apps/Tui/Tui.csproj
+
+      - name: Restore sterile tree offline
+        run: dotnet restore src/Wallet/Wallet.csproj --force --no-cache --source /nonexistent-offline
+
+      - name: Scan
+        shell: pwsh
+        run: pwsh tools/purity-gate.ps1

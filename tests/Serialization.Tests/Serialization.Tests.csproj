@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <AssemblyName>Moonlight.Serialization.Tests</AssemblyName>
+    <RootNamespace>Moonlight.Serialization.Tests</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Serialization\Serialization.csproj" />
+  </ItemGroup>
+
+</Project>

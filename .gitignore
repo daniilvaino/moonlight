@@ -55,3 +55,14 @@ CodeCoverage/
 *.VisualState.xml
 TestResult.xml
 nunit-*.xml
+
+# MOONLIGHT: scratch space for donor/reference clones — never part of the history.
+/work/*
+!/work/README.md
+!/work/Directory.Build.props
+!/work/Directory.Packages.props
+
+# IDE
+.vs/
+.idea/
+*.user
