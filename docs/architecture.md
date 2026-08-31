@@ -3,8 +3,8 @@
 Pure managed C#, `net8.0`, AOT-ready. Layers depend downward only.
 
 ```
-Crypto.Ed25519   ref10 fe_*/ge_*/sc_*; Scalar, Point
-Crypto           Keccak (legacy pad), CRC32, VarInt, derivations, key images,
+Crypto.Ed25519   ref10 fe_*/ge_*/sc_* (vendored)
+Crypto           Scalar, Point; Keccak (legacy pad), CRC32, VarInt, derivations, key images,
                  hash_to_ec/scalar, view tags, CryptoNote signatures
 Serialization    tx/block parsers, Epee
 RingCT           Pedersen, ECDH, CLSAG, Bulletproofs+, MultiExp
@@ -15,8 +15,8 @@ apps             Cli · Tui · Gui.Demo (outside the gate)
 
 | project | source |
 |---|---|
-| `Crypto.Ed25519` | `Vendor/Ref10` ← MoneroRing; `Scalar.cs`/`Point.cs` ours |
-| `Crypto` | `Vendor/MoneroRing` (RNG rewritten on `RandomNumberGenerator`); `Keccak.cs`, `Crc32.cs`, `ViewTag.cs` ours |
+| `Crypto.Ed25519` | `Vendor/Ref10` ← MoneroRing (Chaos.NaCl, public domain) |
+| `Crypto` | `Vendor/MoneroRing` (Keccak and RNG swapped for ours); `Keccak.cs`, `VarInt.cs`, `ViewTag.cs`, `Scalar.cs`, `Point.cs` ours. Scalar and Point live here, not in Crypto.Ed25519: they need `sc_check`/`sc_reduce32`/`hash_to_ec`, which are Monero's additions to ref10 |
 | `Serialization` | ours; ref `monero/src/cryptonote_basic`, Epee cross-checked vs monero-oxide |
 | `RingCT` | hand port of `src/ringct/*.cc`; CLSAG first in C#; BP+ transcript verified step by step vs monero-oxide |
 | `Node` | ours; RPC models may come from btcpay monero-csharp |

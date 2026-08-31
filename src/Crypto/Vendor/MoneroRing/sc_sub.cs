@@ -13,7 +13,7 @@ namespace MoneroRing.Crypto;
 
 public static partial class RingSig
 {
-    static void sc_sub(byte[] s, byte[] a, byte[] b)
+    public static void sc_sub(byte[] s, byte[] a, byte[] b)
     {
         long a0 = 2097151 & load_3(a, 0);
         long a1 = 2097151 & (load_4(a, 2) >> 5);
