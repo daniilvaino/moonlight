@@ -5,7 +5,15 @@ public readonly record struct Vector(string Op, string[] Args)
 {
     public string this[int i] => Args[i];
 
-    public byte[] Bytes(int i) => Convert.FromHexString(Args[i]);
+    /// <summary>
+    /// Hex, except that "x" is how the reference writer spells an empty byte array
+    /// (tests/io.h, get for vector&lt;char&gt;) — not a hex string with a bad character.
+    /// </summary>
+    public byte[] Bytes(int i) => Args[i] == "x" ? [] : Convert.FromHexString(Args[i]);
+
+    public int Index(int i) => int.Parse(Args[i], System.Globalization.CultureInfo.InvariantCulture);
+
+    public uint OutputIndex(int i) => uint.Parse(Args[i], System.Globalization.CultureInfo.InvariantCulture);
 
     public bool Flag(int i) => Args[i] switch
     {
