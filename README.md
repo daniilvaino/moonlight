@@ -23,7 +23,7 @@ No P/Invoke, no native binaries, no NuGet packages in the parts that hold keys �
 |   | project | what it is |
 |---|---------|------------|
 | <img src="media/hex-purple.svg" width="12" alt="sterile"> | [`src/`](src) | the sterile core — Ed25519, Keccak, serialization, RingCT, node, wallet |
-| <img src="media/hex-purple.svg" width="12" alt="sterile"> | [`apps/Cli`](apps/Cli) | NativeAOT command line, ~1.2 MB |
+| <img src="media/hex-purple.svg" width="12" alt="sterile"> | [`apps/Cli`](apps/Cli) | NativeAOT command line — create, restore, addresses, sync |
 | <img src="media/hex-purple.svg" width="12" alt="sterile"> | [`apps/Tui`](apps/Tui) | vendored Terminal.Gui v1, console + SharpOS drivers, ~1.9 MB |
 | <img src="media/hex-orange.svg" width="12" alt="outside the gate"> | [`apps/Gui.Demo`](apps/Gui.Demo) | thin showcase over the wallet — packages allowed |
 | <img src="media/hex-orange.svg" width="12" alt="outside the gate"> | [`tests/`](tests) | the 5945-line corpus and its harness |
@@ -35,8 +35,8 @@ No P/Invoke, no native binaries, no NuGet packages in the parts that hold keys �
 ```sh
 dotnet build Moonlight.slnx
 dotnet test  Moonlight.slnx
-dotnet publish apps/Cli -c Release      # NativeAOT, ~1.2 MB
-dotnet publish apps/Tui -c Release      # NativeAOT, ~1.9 MB
+dotnet publish apps/Cli -c Release      # NativeAOT
+dotnet publish apps/Tui -c Release      # NativeAOT
 pwsh tools/purity-gate.ps1
 ```
 
@@ -129,7 +129,7 @@ Steal what is stealable; port what is not. Every `Vendor/` tree carries a `VENDO
 2. ~~Serialization: transactions, blocks, ids, Merkle root, Epee.~~
 3. ~~Node: monerod JSON-RPC and `/getblocks.bin`.~~
 4. ~~RingCT: Pedersen, ECDH, CLSAG, Bulletproofs+ both ways — verification checked against proofs monero made.~~ Pippenger for the multiexp remains.
-5. ~~Wallet: seeds, addresses, subaddresses, scanner, balance.~~ Decoys, fees, tx builder and encrypted storage remain.
+5. ~~Wallet: seeds, addresses, subaddresses, scanner, balance, encrypted storage.~~ Decoys, fees and the transaction builder remain.
 6. Integration: stagenet end to end, plus our own verify-chain over real blocks.
 
 ---
