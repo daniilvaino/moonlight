@@ -126,10 +126,10 @@ Steal what is stealable; port what is not. Every `Vendor/` tree carries a `VENDO
 ## Roadmap
 
 1. ~~ref10 and the crypto layer, against `tests.txt`.~~
-2. ~~Serialization: transactions, blocks, ids, Merkle root.~~ Epee remains.
-3. ~~Node: monerod JSON-RPC.~~ `/getblocks.bin` remains.
+2. ~~Serialization: transactions, blocks, ids, Merkle root, Epee.~~
+3. ~~Node: monerod JSON-RPC and `/getblocks.bin`.~~
 4. ~~RingCT: Pedersen, ECDH, CLSAG, and the Bulletproof+ verifier — all checked against proofs monero made.~~ The BP+ prover remains, and Pippenger for the multiexp.
-5. Wallet: scanner, decoys, fees, tx builder, encrypted storage.
+5. ~~Wallet: seeds, addresses, subaddresses, scanner, balance.~~ Decoys, fees, tx builder and encrypted storage remain.
 6. Integration: stagenet end to end, plus our own verify-chain over real blocks.
 
 ---

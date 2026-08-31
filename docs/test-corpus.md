@@ -60,7 +60,7 @@ in code. The plan is to run them and capture the intermediate values.
 | `monero/tests/unit_tests/ringct.cpp` | CLSAG sign/verify cases |
 | `monero/tests/unit_tests/bulletproofs_plus.cpp` | BP+ prove/verify, batch, edge sizes |
 | `monero/tests/unit_tests/serialization.cpp` | tx/block round-trips |
-| `monero/tests/unit_tests/epee_serialization.cpp` | Epee portable storage |
+
 | `monero/tests/unit_tests/cryptonote_format_utils.cpp` | format helpers |
 | `monero/tests/unit_tests/varint.cpp`, `base58.cpp`, `mnemonics.cpp`, `subaddress.cpp` | serialization and wallet basics |
 | `monero-oxide/.../plus/transcript.rs` | BP+ transcript, step by step |
@@ -72,10 +72,10 @@ in code. The plan is to run them and capture the intermediate values.
 | project | today |
 |---|---|
 | `Crypto.Tests` | harness + grammar over all 5945 lines; Keccak; VarInt; 4526 replayed vectors; round-trip for the generators (48 tests) |
-| `Serialization.Tests` | corpus integrity; TxParser, TxHash and TxExtra against 5 real transactions; MerkleTree and BlockParser against block 202612 (27) |
+| `Serialization.Tests` | corpus integrity; TxParser, TxHash and TxExtra against 5 real transactions; MerkleTree and BlockParser against block 202612; Epee against monero's own byte vectors (42) |
 | `RingCT.Tests` | Pedersen, ECDH, CLSAG sign/verify, two real monero-made CLSAG signatures verified against their rings, and the real Bulletproof+ range proof from the same transaction (45) |
 | `Wallet.Tests` | Base58, addresses, mnemonic, key derivation, subaddresses and restore height — anchored on the seed monero's own functional tests restore; plus the scanner finding the change output of a real mainnet transaction, and balance, locking and spend detection (71) |
-| `Integration` | DaemonClient against canned monerod answers, no network (6); plus chain tests that run only when `MOONLIGHT_DAEMON` names a node (2) |
+| `Integration` | DaemonClient and getblocks.bin against canned monerod answers, no network (11); plus chain tests that run only when `MOONLIGHT_DAEMON` names a node (2) |
 
 The corpus tests assert the vector files themselves are intact. That is not busywork: a
 truncated or reformatted vector file is the one failure mode that makes every later test
