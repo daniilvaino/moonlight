@@ -13,8 +13,11 @@ and reads no packages at all. `Terminal.Gui/ConsoleDrivers/` (the ncurses, kerne
 NetDriver implementations, ~57 P/Invoke sites) is **not** part of the module and was not
 copied. The compiled set has 0 P/Invoke and 0 `PackageReference`.
 
-`XtermSharp/CharWidth.cs` comes from the same repo's `vendor/XtermSharp` (MIT); the props
-file needs it for character widths. The rest of XtermSharp is not copied.
+`XtermSharp/CharWidth.cs` is the one file taken from the same repo's `vendor/XtermSharp`
+(a subtree of daniilvaino/XtermSharp @ `1bed529`, forked from migueldeicaza/XtermSharp).
+The props file needs it for character widths — `RuneHelper`, a port of `wcwidth.c`. The
+rest of XtermSharp is not copied. MIT, with four copyright holders: the xterm.js authors,
+SourceLair, Christopher Jeffrey and Miguel de Icaza.
 
 Requires **C# 14** — `RuneCount`/`ConsoleWidth` are extension properties, used at ~54
 call sites. Target framework stays `net8.0`; only the compiler must be new.
