@@ -30,15 +30,20 @@ public class CorpusTests
         Assert.Equal(5, count);
     }
 
+    /// <summary>
+    /// These are transaction *ids*, not blobs — 514 of them, the contents of block
+    /// 202612. They are here for the Merkle root, which is where that block is
+    /// famous for having two valid hashes.
+    /// </summary>
     [Fact]
-    public void Block202612TransactionsDecode()
+    public void Block202612IdsDecode()
     {
         using JsonDocument doc = Corpus.Json("blocks", "block_202612_transactions.txt");
         int count = 0;
 
         foreach (JsonElement hex in doc.RootElement.EnumerateArray())
         {
-            Assert.NotEmpty(Convert.FromHexString(hex.GetString()!));
+            Assert.Equal(32, Convert.FromHexString(hex.GetString()!).Length);
             count++;
         }
 
