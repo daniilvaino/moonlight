@@ -70,6 +70,31 @@ public static class Keccak
         }
     }
 
+    /// <summary>
+    /// Keccak-f[1600] over a 200-byte state, in place. Exposed because monero's
+    /// deterministic test generator is this permutation and nothing else.
+    /// </summary>
+    public static void Permute(Span<byte> state)
+    {
+        if (state.Length != 200)
+        {
+            throw new ArgumentException("the Keccak state is 200 bytes", nameof(state));
+        }
+
+        Span<ulong> lanes = stackalloc ulong[25];
+        for (int i = 0; i < 25; i++)
+        {
+            lanes[i] = System.Buffers.Binary.BinaryPrimitives.ReadUInt64LittleEndian(state.Slice(i * 8, 8));
+        }
+
+        Permute(lanes);
+
+        for (int i = 0; i < 25; i++)
+        {
+            System.Buffers.Binary.BinaryPrimitives.WriteUInt64LittleEndian(state.Slice(i * 8, 8), lanes[i]);
+        }
+    }
+
     private static void Absorb(Span<ulong> state, ReadOnlySpan<byte> block)
     {
         for (int i = 0; i < Rate / 8; i++)

@@ -10,7 +10,7 @@
   <img src="https://img.shields.io/badge/pure_c%23-100%25-7c3aed?style=flat-square&labelColor=30363d" alt="pure C#: 100%">
   <img src="https://img.shields.io/badge/p%2Finvoke-0-7c3aed?style=flat-square&labelColor=30363d" alt="P/Invoke: 0">
   <img src="https://img.shields.io/badge/packages-0-7c3aed?style=flat-square&labelColor=30363d" alt="packages: 0">
-  <img src="https://img.shields.io/badge/vectors-4526%2F5945-f2640a?style=flat-square&labelColor=30363d" alt="vectors replayed: 4526 of 5945">
+  <img src="https://img.shields.io/badge/vectors-5539%2F5945-f2640a?style=flat-square&labelColor=30363d" alt="vectors replayed: 5539 of 5945">
   <img src="https://img.shields.io/badge/license-MIT-4b5563?style=flat-square&labelColor=30363d" alt="license: MIT">
 </p>
 
@@ -94,9 +94,9 @@ Vectors before code. The harness for `tests/crypto/tests.txt` was the first thin
 
 |             |                                                                          |
 |-------------|--------------------------------------------------------------------------|
-| `tests.txt` | 5945 lines, 20 operations, from monero (BSD-3); 4526 replayed line by line |
+| `tests.txt` | 5945 lines, 20 operations, from monero (BSD-3); 5539 replayed line by line |
 | grammar     | transcribed from monero's reference runner; every line checked against it |
-| generators  | 1013 lines cannot be replayed — the reference compares bytes from a seeded PRNG — so they are covered by round-trip against the verifiers that do pass |
+| generators  | 1013 of those lines record bytes drawn from monero's deterministic test generator; reproducing it makes our generators match byte for byte, draw pattern included |
 | real data   | transaction ids of five real transactions; the Merkle root and block id of block 202612 |
 
 Corpus tests assert the vector files themselves are intact — a truncated vector file is the one failure that makes every later test pass for free. Inventory, including what we do not have vectors for, in [docs/test-corpus.md](docs/test-corpus.md).

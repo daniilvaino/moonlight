@@ -6,6 +6,11 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <!-- The tests substitute monero's deterministic generator for the real one. -->
+    <InternalsVisibleTo Include="Moonlight.Crypto.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\Crypto.Ed25519\Crypto.Ed25519.csproj" />
   </ItemGroup>
 

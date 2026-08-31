@@ -29,20 +29,26 @@ What we have, where it came from, and what it can prove. Vectors before code.
 | `hash_to_scalar` | 256 | | `check_ge_p3_identity` | 6 |
 | `generate_signature` | 256 | | `generate_ring_signature` | 256 |
 
-### Coverage: 4526 of 5945 replayed (76%)
+### Coverage: 5539 of 5945 replayed (93%)
 
-Replayed line by line: `check_ring_signature`, `check_signature`, `check_key`,
-`hash_to_point`, `check_scalar`, `secret_key_to_public_key`, `generate_key_derivation`,
-`derive_public_key`, `hash_to_scalar`, `generate_key_image`, `derive_secret_key`,
-`biased_hash_to_ec`, `derive_view_tag`.
+Every operation is replayed line by line except two groups.
 
-The remaining 1419 are not skipped work but four different reasons:
+The generating four — `random_scalar`, `generate_keys`, `generate_signature` and
+`generate_ring_signature`, 1013 lines — record the bytes monero's reference drew from a
+deterministic generator, so replaying them means reproducing that generator rather than
+using a real one. It is `tests/crypto/random.c`: a 200-byte Keccak state filled with 42
+and permuted once. `MoneroTestRandom` is that, and the vendored RNG has an
+assembly-internal hook so the tests can substitute it.
+
+Because the generator is shared across the file and advances with every draw, those four
+have to be replayed together in file order. Drawing a different number of bytes than the
+reference did desynchronises everything after it — so this checks the draw pattern as
+well as the arithmetic, and our generators produce byte-identical output to monero's.
 
 | operation | lines | why not replayed |
 |---|---:|---|
-| `generate_signature`, `generate_ring_signature`, `generate_keys`, `random_scalar` | 1013 | **Unreplayable by construction.** The reference seeds a fixed PRNG and compares the bytes it draws; we use a real one. Covered instead by round-trip: what our generators produce must satisfy the verifiers that already pass the corpus, and must fail against a different message. |
-| `point_to_wei_x_y`, `derive_key_image_generator` | 400 | FCMP++ groundwork; nothing implemented yet. |
-| `check_ge_p3_identity` | 6 | Needs the two identity probes from `crypto-tests.h`, which are test-only helpers, not library functions. |
+| `point_to_wei_x_y`, `derive_key_image_generator` | 400 | FCMP++ groundwork; nothing implemented yet, and nothing to implement until the fork. |
+| `check_ge_p3_identity` | 6 | Needs the two identity probes from `crypto-tests.h`, which are test-only helpers rather than library functions. |
 
 The grammar (which arguments each operation takes, including the three that append an
 expected value only when the preceding boolean is true, and the two ring operations that
@@ -71,7 +77,7 @@ in code. The plan is to run them and capture the intermediate values.
 
 | project | today |
 |---|---|
-| `Crypto.Tests` | harness + grammar over all 5945 lines; Keccak; VarInt; 4526 replayed vectors; round-trip for the generators (48 tests) |
+| `Crypto.Tests` | harness + grammar over all 5945 lines; Keccak; VarInt; 5539 replayed vectors, generators included; round-trip and typed-API tests on top (61) |
 | `Serialization.Tests` | corpus integrity; TxParser, TxHash and TxExtra against 5 real transactions; MerkleTree and BlockParser against block 202612; Epee against monero's own byte vectors (42) |
 | `RingCT.Tests` | Pedersen, ECDH, CLSAG sign/verify, two real monero-made CLSAG signatures verified against their rings, the real Bulletproof+ range proof from the same transaction, and our own prover checked against that verifier (61) |
 | `Wallet.Tests` | Base58, addresses, mnemonic, key derivation, subaddresses and restore height — anchored on the seed monero's own functional tests restore; plus the scanner finding the change output of a real mainnet transaction, and balance, locking and spend detection (71) |

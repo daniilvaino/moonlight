@@ -16,11 +16,30 @@ namespace MoneroRing.Crypto;
 
 public static partial class RingSig
 {
+    /// <summary>
+    /// Where randomness comes from. Replaceable only from inside this assembly and
+    /// its tests, so monero's deterministic test generator can be substituted and
+    /// the generating half of tests.txt replayed byte for byte. Thread-local, so a
+    /// substitution in one test cannot reach another running beside it.
+    /// </summary>
+#nullable enable
+    [ThreadStatic]
+    private static Action<byte[]>? randomSource;
+
+    internal static Action<byte[]> RandomSource
+    {
+        get => randomSource ?? Fill;
+        set => randomSource = value;
+    }
+
+    private static void Fill(byte[] bytes) => RandomNumberGenerator.Fill(bytes);
+#nullable restore
+
     public static void generate_random_bytes(byte[] random_bytes, int length_bytes)
     {
         if (random_bytes == null || random_bytes.Length == 0 || random_bytes.Length != length_bytes)
             throw new Exception("Incorrect random buffer size");
-        RandomNumberGenerator.Fill(random_bytes);
+        RandomSource(random_bytes);
     }
 
     public static void random_scalar(byte[] data)
