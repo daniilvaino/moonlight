@@ -91,6 +91,46 @@ public readonly struct Scalar : IEquatable<Scalar>
         return new Scalar(result);
     }
 
+    public static Scalar One { get; } = FromCanonical([1, .. new byte[31]]);
+
+    /// <summary>
+    /// Multiplicative inverse by Fermat: a^(l-2) mod l. ref10 has no inversion, and
+    /// the exponent is fixed, so square-and-multiply over its 253 bits is both the
+    /// simplest way and a constant number of operations.
+    /// </summary>
+    public static Scalar Invert(Scalar value)
+    {
+        if (value.IsZero)
+        {
+            throw new DivideByZeroException("zero has no inverse");
+        }
+
+        // l - 2, little-endian. l = 2^252 + 27742317777372353535851937790883648493.
+        ReadOnlySpan<byte> exponent =
+        [
+            0xeb, 0xd3, 0xf5, 0x5c, 0x1a, 0x63, 0x12, 0x58, 0xd6, 0x9c, 0xf7, 0xa2, 0xde, 0xf9, 0xde, 0x14,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x10,
+        ];
+
+        Scalar result = One;
+        Scalar square = value;
+
+        for (int byteIndex = 0; byteIndex < 32; byteIndex++)
+        {
+            for (int bit = 0; bit < 8; bit++)
+            {
+                if ((exponent[byteIndex] >> bit & 1) != 0)
+                {
+                    result *= square;
+                }
+
+                square *= square;
+            }
+        }
+
+        return result;
+    }
+
     public static Scalar Add(Scalar a, Scalar b) => a + b;
 
     public static Scalar Subtract(Scalar a, Scalar b) => a - b;

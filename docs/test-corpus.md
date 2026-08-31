@@ -72,7 +72,7 @@ in code. The plan is to run them and capture the intermediate values.
 |---|---|
 | `Crypto.Tests` | harness + grammar over all 5945 lines; Keccak; VarInt; 4526 replayed vectors; round-trip for the generators (48 tests) |
 | `Serialization.Tests` | corpus integrity; TxParser and TxHash against 5 real transactions; MerkleTree and BlockParser against block 202612 (22) |
-| `RingCT.Tests` | Pedersen, ECDH, CLSAG sign/verify, and two real monero-made CLSAG signatures verified against their rings (34) |
+| `RingCT.Tests` | Pedersen, ECDH, CLSAG sign/verify, two real monero-made CLSAG signatures verified against their rings, and the real Bulletproof+ range proof from the same transaction (45) |
 | `Wallet.Tests` | address corpus integrity (2) |
 | `Integration` | DaemonClient against canned monerod answers, no network (6); plus chain tests that run only when `MOONLIGHT_DAEMON` names a node (2) |
 

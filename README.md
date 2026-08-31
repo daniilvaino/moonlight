@@ -16,7 +16,7 @@
 
 No P/Invoke, no native binaries, no NuGet packages in the parts that hold keys — one artifact that runs wherever the runtime does, and every byte of it readable in this repository.
 
-**Status: early.** Crypto, serialization and the daemon client are in and tested against monero's own vectors and real chain data. RingCT — Pedersen, ECDH, CLSAG, Bulletproofs+ — is next, and the wallet after it. Nothing here spends money yet.
+**Status: early.** Crypto, serialization, the daemon client and RingCT verification are in — the CLSAG signatures and the Bulletproof+ range proof of a real transaction verify against this code. The BP+ prover and the wallet are next. Nothing here spends money yet.
 
 ## The solution
 
@@ -128,7 +128,7 @@ Steal what is stealable; port what is not. Every `Vendor/` tree carries a `VENDO
 1. ~~ref10 and the crypto layer, against `tests.txt`.~~
 2. ~~Serialization: transactions, blocks, ids, Merkle root.~~ Epee remains.
 3. ~~Node: monerod JSON-RPC.~~ `/getblocks.bin` remains.
-4. RingCT: Pedersen and ECDH, then CLSAG — the first implementation in C# — then Bulletproofs+, transcript verified step by step against monero-oxide.
+4. ~~RingCT: Pedersen, ECDH, CLSAG, and the Bulletproof+ verifier — all checked against proofs monero made.~~ The BP+ prover remains, and Pippenger for the multiexp.
 5. Wallet: scanner, decoys, fees, tx builder, encrypted storage.
 6. Integration: stagenet end to end, plus our own verify-chain over real blocks.
 

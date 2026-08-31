@@ -67,6 +67,21 @@ public class TypedTests
     }
 
     [Fact]
+    public void InversionUndoesMultiplication()
+    {
+        for (int i = 0; i < 16; i++)
+        {
+            Scalar a = Scalar.Random();
+
+            Assert.Equal(Scalar.One, a * Scalar.Invert(a));
+            Assert.Equal(a, Scalar.Invert(Scalar.Invert(a)));
+        }
+
+        Assert.Equal(Scalar.One, Scalar.Invert(Scalar.One));
+        Assert.Throws<DivideByZeroException>(() => Scalar.Invert(Scalar.Zero));
+    }
+
+    [Fact]
     public void ToBytesDoesNotExposeInternalState()
     {
         Scalar scalar = Scalar.Random();
