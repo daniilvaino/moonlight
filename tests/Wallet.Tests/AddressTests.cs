@@ -103,18 +103,27 @@ public class AddressTests
 
     /// <summary>
     /// The prefixes were chosen so the first character tells a human what they are
-    /// looking at. Getting one wrong produces addresses that look plausible and
-    /// belong to another network.
+    /// looking at. It is not fully determined by the prefix, though — the keys
+    /// carry into the leading digit, which is why testnet addresses begin with 9
+    /// *or* A. Every character below was observed over 3000 random keys per case.
     /// </summary>
-    [Fact]
-    public void TheFirstCharacterIdentifiesNetworkAndKind()
+    [Theory]
+    [InlineData(Network.Mainnet, AddressKind.Standard, "4")]
+    [InlineData(Network.Mainnet, AddressKind.Subaddress, "8")]
+    [InlineData(Network.Testnet, AddressKind.Standard, "9A")]
+    [InlineData(Network.Testnet, AddressKind.Subaddress, "B")]
+    [InlineData(Network.Stagenet, AddressKind.Standard, "5")]
+    [InlineData(Network.Stagenet, AddressKind.Subaddress, "7")]
+    public void TheFirstCharacterIdentifiesNetworkAndKind(Network network, AddressKind kind, string allowed)
     {
-        Point key = Point.FromSecret(Scalar.Random());
+        for (int i = 0; i < 32; i++)
+        {
+            string encoded = new Address(network, kind,
+                Point.FromSecret(Scalar.Random()), Point.FromSecret(Scalar.Random())).Encode();
 
-        Assert.StartsWith("4", new Address(Network.Mainnet, AddressKind.Standard, key, key).Encode(), StringComparison.Ordinal);
-        Assert.StartsWith("8", new Address(Network.Mainnet, AddressKind.Subaddress, key, key).Encode(), StringComparison.Ordinal);
-        Assert.StartsWith("5", new Address(Network.Stagenet, AddressKind.Standard, key, key).Encode(), StringComparison.Ordinal);
-        Assert.StartsWith("9", new Address(Network.Testnet, AddressKind.Standard, key, key).Encode(), StringComparison.Ordinal);
+            Assert.True(allowed.Contains(encoded[0], StringComparison.Ordinal),
+                $"{network} {kind} address began with '{encoded[0]}', expected one of {allowed}");
+        }
     }
 
     /// <summary>

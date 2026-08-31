@@ -15,6 +15,31 @@ public class ChainTests
 
     private static DaemonClient? Connect() => Address is null ? null : new DaemonClient(new Uri(Address));
 
+    /// <summary>
+    /// A date maps to the first block at or after it. The offline estimate must
+    /// land at or before that block — early is recoverable, late is not.
+    /// </summary>
+    [Fact]
+    public async Task RestoreHeightAgreesWithTheChain()
+    {
+        using DaemonClient? client = Connect();
+        if (client is null) return;
+
+        foreach (DateTimeOffset date in new[]
+        {
+            new DateTimeOffset(2016, 3, 20, 0, 0, 0, TimeSpan.Zero),
+            new DateTimeOffset(2020, 1, 1, 0, 0, 0, TimeSpan.Zero),
+            new DateTimeOffset(2024, 1, 1, 0, 0, 0, TimeSpan.Zero),
+        })
+        {
+            ulong exact = await Wallet.RestoreHeight.ForDateAsync(client, date);
+            ulong estimate = Wallet.RestoreHeight.Estimate(date);
+
+            Assert.True(estimate <= exact, $"estimate {estimate} overshot {exact} for {date:yyyy-MM-dd}");
+            Assert.True(exact - estimate < 100_000, $"estimate {estimate} is {exact - estimate} blocks early");
+        }
+    }
+
     [Fact]
     public async Task ReportsAHeight()
     {
