@@ -1,4 +1,5 @@
 using MoneroRing.Crypto;
+using MoneroSharp.NaCl.Internal.Ed25519Ref10;
 using Xunit;
 
 namespace Moonlight.Crypto.Tests;
@@ -71,6 +72,36 @@ public class VectorTests
             RingSig.generate_key_image(v.Bytes(0), v.Bytes(1), image);
             Equal(v[2], image);
         });
+
+    /// <summary>
+    /// The raw map: ge_fromfe_frombytes_vartime on the hash, straight to bytes.
+    /// No Keccak and no ge_mul8 — those belong to biased_hash_to_ec, and confusing
+    /// the two gives a point that is on the curve and simply wrong.
+    /// </summary>
+    [Fact]
+    public void HashToPoint()
+        => Run("hash_to_point", v =>
+        {
+            RingSig.ge_fromfe_frombytes_vartime(out GroupElementP2 point, v.Bytes(0));
+
+            byte[] res = new byte[32];
+            GroupOperations.ge_tobytes(res, 0, ref point);
+            Equal(v[1], res);
+        });
+
+    [Fact]
+    public void BiasedHashToEc()
+        => Run("biased_hash_to_ec", v =>
+        {
+            byte[] res = new byte[32];
+            RingSig.hash_to_ec(v.Bytes(0), res);
+            Equal(v[1], res);
+        });
+
+    [Fact]
+    public void DeriveViewTag()
+        => Run("derive_view_tag", v =>
+            Equal(v[2], [ViewTag.Derive(v.Bytes(0), v.OutputIndex(1))]));
 
     [Fact]
     public void CheckSignature()

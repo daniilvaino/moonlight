@@ -28,8 +28,20 @@ What we have, where it came from, and what it can prove. Vectors before code.
 | `hash_to_scalar` | 256 | | `check_ge_p3_identity` | 6 |
 | `generate_signature` | 256 | | `generate_ring_signature` | 256 |
 
-`point_to_wei_x_y` and `derive_key_image_generator` are FCMP++ groundwork — nothing to
-implement against them yet, but they are already in the file.
+### Coverage: 4526 of 5945 replayed (76%)
+
+Replayed line by line: `check_ring_signature`, `check_signature`, `check_key`,
+`hash_to_point`, `check_scalar`, `secret_key_to_public_key`, `generate_key_derivation`,
+`derive_public_key`, `hash_to_scalar`, `generate_key_image`, `derive_secret_key`,
+`biased_hash_to_ec`, `derive_view_tag`.
+
+The remaining 1419 are not skipped work but four different reasons:
+
+| operation | lines | why not replayed |
+|---|---:|---|
+| `generate_signature`, `generate_ring_signature`, `generate_keys`, `random_scalar` | 1013 | **Unreplayable by construction.** The reference seeds a fixed PRNG and compares the bytes it draws; we use a real one. Covered instead by round-trip: what our generators produce must satisfy the verifiers that already pass the corpus, and must fail against a different message. |
+| `point_to_wei_x_y`, `derive_key_image_generator` | 400 | FCMP++ groundwork; nothing implemented yet. |
+| `check_ge_p3_identity` | 6 | Needs the two identity probes from `crypto-tests.h`, which are test-only helpers, not library functions. |
 
 The grammar (which arguments each operation takes, including the three that append an
 expected value only when the preceding boolean is true, and the two ring operations that
@@ -58,7 +70,7 @@ in code. The plan is to run them and capture the intermediate values.
 
 | project | today |
 |---|---|
-| `Crypto.Tests` | harness + grammar over all 5945 lines (10 tests) |
+| `Crypto.Tests` | harness + grammar over all 5945 lines; Keccak; VarInt; 4526 replayed vectors; round-trip for the generators (48 tests) |
 | `Serialization.Tests` | transaction corpus integrity (2) |
 | `RingCT.Tests` | CLSAG corpus integrity (2) |
 | `Wallet.Tests` | address corpus integrity (2) |

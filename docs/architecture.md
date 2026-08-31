@@ -4,9 +4,9 @@ Pure managed C#, `net8.0`, AOT-ready. Layers depend downward only.
 
 ```
 Crypto.Ed25519   ref10 fe_*/ge_*/sc_*; Scalar, Point
-Crypto           Keccak (legacy pad), CRC32, derivations, key images, hash_to_ec/scalar,
-                 view tags, CryptoNote signatures
-Serialization    VarInt, tx/block parsers, Epee
+Crypto           Keccak (legacy pad), CRC32, VarInt, derivations, key images,
+                 hash_to_ec/scalar, view tags, CryptoNote signatures
+Serialization    tx/block parsers, Epee
 RingCT           Pedersen, ECDH, CLSAG, Bulletproofs+, MultiExp
 Node             monerod JSON-RPC; /getblocks.bin (stage 2)
 Wallet           keys, accounts, addresses, scanner, decoys, fees, tx builder, storage
