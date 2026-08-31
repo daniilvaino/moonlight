@@ -22,6 +22,7 @@ operations, in `tests/Crypto.Tests/VectorTests.cs`. All pass.
 | `random.cs` | `Org.BouncyCastle.Security.SecureRandom` → `RandomNumberGenerator.Fill` | drops the last package |
 | `generate_signature.cs` | `CryptoBytes.Wipe` → `CryptographicOperations.ZeroMemory` | avoids pulling in NaCl's helper class; the BCL version is guaranteed not to be optimised away |
 | `check_ring_signature.cs` | dropped `using MoneroSharp.Utils` | unused, and it was the only reference to a namespace we do not vendor |
+| `sc_sub.cs` | `static` → `public static` | `Scalar`'s subtraction operator; upstream only uses it internally |
 | `generate_mnemonic_seed.cs` | not copied | mnemonic belongs in `Wallet`, from MoneroSharp |
 | `Vendor/.editorconfig` | **added** (Moonlight) | analyzers and nullable warnings off for vendored code |
 
