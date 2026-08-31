@@ -12,7 +12,7 @@ internal static class Program
     {
         if (args.Length == 0)
         {
-            Console.WriteLine("moonlight-tui <wallet file> [--password p] [--daemon url]");
+            Console.WriteLine("moonlight-tui <wallet file> [--password p] [--daemon url] [--screen receive|node]");
             Console.WriteLine();
             Console.WriteLine("This wallet can receive. It cannot spend yet.");
             return;
@@ -38,6 +38,10 @@ internal static class Program
 
         SharpOSDriver driver = new();
         Application.Init(driver, new ConsoleMainLoop(driver));
+
+        // Before any screen is built: the schemes are global, and a view created
+        // earlier keeps the colours that were in force when it was made.
+        Theme.Apply();
 
         Scanner scanner = new(account);
         WalletState state = new(scanner, restoreHeight);
@@ -76,7 +80,15 @@ internal static class Program
             ]),
         ]));
 
-        top.Add(main);
+        // --screen opens straight onto one of them, which is also what makes the
+        // screens checkable without a keyboard.
+        Show(Flag(args, "screen") switch
+        {
+            "receive" => receive,
+            "node" => node,
+            _ => main,
+        });
+
         dashboard.Update(state.Balance(), state.ScannedHeight, 0, 0);
         history.Update([], _ => false);
 
