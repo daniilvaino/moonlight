@@ -16,7 +16,7 @@
 
 No P/Invoke, no native binaries, no NuGet packages in the parts that hold keys — one artifact that runs wherever the runtime does, and every byte of it readable in this repository.
 
-**Status: early.** Crypto, serialization, the daemon client and RingCT verification are in — the CLSAG signatures and the Bulletproof+ range proof of a real transaction verify against this code. The BP+ prover and the wallet are next. Nothing here spends money yet.
+**Status: early.** Crypto, serialization, the daemon client, RingCT and a scanning wallet are in. The CLSAG signatures and the Bulletproof+ range proof of a real transaction verify against this code, and it finds the change output of that transaction and reads its amount. What is missing is the other half of spending: decoy selection, fees and the transaction builder. Nothing here spends money yet.
 
 ## The solution
 
@@ -128,7 +128,7 @@ Steal what is stealable; port what is not. Every `Vendor/` tree carries a `VENDO
 1. ~~ref10 and the crypto layer, against `tests.txt`.~~
 2. ~~Serialization: transactions, blocks, ids, Merkle root, Epee.~~
 3. ~~Node: monerod JSON-RPC and `/getblocks.bin`.~~
-4. ~~RingCT: Pedersen, ECDH, CLSAG, and the Bulletproof+ verifier — all checked against proofs monero made.~~ The BP+ prover remains, and Pippenger for the multiexp.
+4. ~~RingCT: Pedersen, ECDH, CLSAG, Bulletproofs+ both ways — verification checked against proofs monero made.~~ Pippenger for the multiexp remains.
 5. ~~Wallet: seeds, addresses, subaddresses, scanner, balance.~~ Decoys, fees, tx builder and encrypted storage remain.
 6. Integration: stagenet end to end, plus our own verify-chain over real blocks.
 
