@@ -74,7 +74,7 @@ in code. The plan is to run them and capture the intermediate values.
 | `Serialization.Tests` | corpus integrity; TxParser and TxHash against 5 real transactions; MerkleTree and BlockParser against block 202612 (22) |
 | `RingCT.Tests` | CLSAG corpus integrity (2) |
 | `Wallet.Tests` | address corpus integrity (2) |
-| `Integration` | empty — stagenet e2e and verify-chain come after the parsers |
+| `Integration` | DaemonClient against canned monerod answers, no network (6); plus chain tests that run only when `MOONLIGHT_DAEMON` names a node (2) |
 
 The corpus tests assert the vector files themselves are intact. That is not busywork: a
 truncated or reformatted vector file is the one failure mode that makes every later test

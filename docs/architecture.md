@@ -19,7 +19,7 @@ apps             Cli · Tui · Gui.Demo (outside the gate)
 | `Crypto` | `Vendor/MoneroRing` (Keccak and RNG swapped for ours); `Keccak.cs`, `VarInt.cs`, `ViewTag.cs`, `Scalar.cs`, `Point.cs` ours. Scalar and Point live here, not in Crypto.Ed25519: they need `sc_check`/`sc_reduce32`/`hash_to_ec`, which are Monero's additions to ref10 |
 | `Serialization` | ours; ref `monero/src/cryptonote_basic`, Epee cross-checked vs monero-oxide |
 | `RingCT` | hand port of `src/ringct/*.cc`; CLSAG first in C#; BP+ transcript verified step by step vs monero-oxide |
-| `Node` | ours; RPC models may come from btcpay monero-csharp |
+| `Node` | ours. JSON-RPC over `HttpClient`, with source-generated `System.Text.Json` — reflection-based JSON does not survive trimming or AOT |
 | `Wallet` | `Vendor/MoneroSharp` (mnemonic/Base58/prefixes only); rest ours |
 
 Key material is never `byte[]`: `SecretKey`/`PublicKey`/`KeyImage`/`Commitment` are
