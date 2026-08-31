@@ -45,6 +45,14 @@ public sealed class Account
         return new Account(spend, Scalar.Reduce(Keccak.Hash(spend.ToBytes())), network);
     }
 
+    /// <summary>
+    /// From the two secret keys directly. A wallet restored this way has no seed
+    /// phrase, because the view key is not derivable from a spend key that was
+    /// never generated from one.
+    /// </summary>
+    public static Account FromKeys(Scalar spendSecret, Scalar viewSecret, Network network = Network.Mainnet)
+        => new(spendSecret, viewSecret, network);
+
     public static Account FromMnemonic(string phrase, Network network = Network.Mainnet)
         => FromSeed(Mnemonic.Decode(phrase), network);
 
