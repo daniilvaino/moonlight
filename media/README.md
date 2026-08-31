@@ -21,7 +21,9 @@ orange marks everything outside the purity gate (`apps/Gui.Demo`, `tests/`).
 - `icon-purple.svg` — primary mark (README hero, app icon, social preview)
 - `icon-orange.svg` — secondary mark for outside-the-gate contexts
 - `hex-purple.svg`, `hex-orange.svg` — 24px zone dots for tables and dividers
-- `favicon.ico` — 16/32/48/64 multi-size, built from the purple icon
+- `favicon.ico` — 16/32/48/64/128/256 multi-size, built from the purple icon.
+  The two large entries matter: without them Explorer and the taskbar upscale the
+  64px one and the mark looks soft.
 - `favicon-{16,32,48,64,128,256}.png` — raster renditions
 
 The white letter sits on the colored field, so both icons work unchanged
