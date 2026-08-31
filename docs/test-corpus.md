@@ -7,8 +7,8 @@ What we have, where it came from, and what it can prove. Vectors before code.
 | file | source | licence | contents |
 |---|---|---|---|
 | `tests.txt` | monero `tests/crypto/` | BSD-3 | 5945 lines, 20 operations, 8.7 MB |
-| `clsag/clsag_tx.json` | monero-oxide | MIT | one CLSAG-signed transaction |
-| `clsag/ring_data.json` | monero-oxide | MIT | 2 rings × 16 members (key + mask) |
+| `clsag/clsag_tx.json` | monero-oxide | MIT | one real transaction with two CLSAG signatures, its Bulletproof+ fields and pseudo-outs |
+| `clsag/ring_data.json` | monero-oxide | MIT | the two rings that transaction was signed against, 16 members each |
 | `blocks/transactions.json` | monero-oxide | MIT | 5 real transactions with ids — 4 v2, 1 v1 |
 | `blocks/block_202612_transactions.txt` | monero-oxide | MIT | 514 transaction **ids** from block 202612 — the Merkle root and block id are checked against them |
 | `addresses/featured_addresses.json` | monero-oxide | MIT | 24 addresses, mainnet/stagenet/testnet |
@@ -72,7 +72,7 @@ in code. The plan is to run them and capture the intermediate values.
 |---|---|
 | `Crypto.Tests` | harness + grammar over all 5945 lines; Keccak; VarInt; 4526 replayed vectors; round-trip for the generators (48 tests) |
 | `Serialization.Tests` | corpus integrity; TxParser and TxHash against 5 real transactions; MerkleTree and BlockParser against block 202612 (22) |
-| `RingCT.Tests` | CLSAG corpus integrity (2) |
+| `RingCT.Tests` | Pedersen, ECDH, CLSAG sign/verify, and two real monero-made CLSAG signatures verified against their rings (34) |
 | `Wallet.Tests` | address corpus integrity (2) |
 | `Integration` | DaemonClient against canned monerod answers, no network (6); plus chain tests that run only when `MOONLIGHT_DAEMON` names a node (2) |
 

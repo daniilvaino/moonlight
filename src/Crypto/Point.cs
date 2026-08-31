@@ -98,6 +98,58 @@ public readonly struct Point : IEquatable<Point>
 
     public static Point Add(Point a, Point b) => a + b;
 
+    public static Point operator -(Point a, Point b)
+    {
+        if (RingSig.ge_frombytes_vartime(out GroupElementP3 pa, a.Bytes) != 0 ||
+            RingSig.ge_frombytes_vartime(out GroupElementP3 pb, b.Bytes) != 0)
+        {
+            throw new InvalidOperationException("a Point that does not decompress");
+        }
+
+        GroupOperations.ge_p3_to_cached(out GroupElementCached cached, ref pb);
+        GroupOperations.ge_sub(out GroupElementP1P1 difference, ref pa, ref cached);
+        GroupOperations.ge_p1p1_to_p2(out GroupElementP2 result, ref difference);
+
+        byte[] bytes = new byte[Size];
+        GroupOperations.ge_tobytes(bytes, 0, ref result);
+        return new Point(bytes);
+    }
+
+    public static Point Subtract(Point a, Point b) => a - b;
+
+    /// <summary>scalar · point.</summary>
+    public static Point operator *(Scalar scalar, Point point)
+    {
+        if (RingSig.ge_frombytes_vartime(out GroupElementP3 p, point.Bytes) != 0)
+        {
+            throw new InvalidOperationException("a Point that does not decompress");
+        }
+
+        RingSig.ge_scalarmult(out GroupElementP2 result, scalar.ToBytes(), ref p);
+
+        byte[] bytes = new byte[Size];
+        GroupOperations.ge_tobytes(bytes, 0, ref result);
+        return new Point(bytes);
+    }
+
+    public static Point Multiply(Scalar scalar, Point point) => scalar * point;
+
+    /// <summary>scalar · G, where the scalar need not be a valid secret key.</summary>
+    public static Point BaseMultiply(Scalar scalar)
+    {
+        GroupOperations.ge_scalarmult_base(out GroupElementP3 result, scalar.ToBytes(), 0);
+
+        byte[] bytes = new byte[Size];
+        GroupOperations.ge_p3_tobytes(bytes, 0, ref result);
+        return new Point(bytes);
+    }
+
+    /// <summary>The neutral element, as monero encodes it.</summary>
+    public static Point Identity { get; } = FromBytes(
+        [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
+
+    public bool IsIdentity => Equals(Identity);
+
     public byte[] ToBytes() => Bytes.AsSpan().ToArray();
 
     public bool Equals(Point other) => Bytes.AsSpan().SequenceEqual(other.Bytes);
