@@ -4,7 +4,11 @@ using Xunit;
 
 namespace Moonlight.Wallet.Tests;
 
-/// <summary>Address vectors from monero-oxide: mainnet/stagenet, subaddress, integrated, featured.</summary>
+/// <summary>
+/// monero-oxide's Featured Address vectors — an unofficial extension, not
+/// consensus. Kept for their key material and as a record of what the file is;
+/// the standard address vectors live in monero_addresses.json.
+/// </summary>
 public class CorpusTests
 {
     [Fact]

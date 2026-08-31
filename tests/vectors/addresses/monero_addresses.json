@@ -1,0 +1,35 @@
+[
+  {
+    "source": "monero tests/unit_tests/base58.cpp (BSD-3)",
+    "network": "Mainnet",
+    "kind": "Standard",
+    "spend": "f724bc5c6cfbb9d97602c300423a2f28641874513a035778a0c1778d833201e9",
+    "view": "220939689edf1abd5bc1d031f73ecd6c993add66d6808870456afeb8e7eeb68d",
+    "address": "4AzKEX4gXdJdNeM6dfiBFL7kqund3HYGvMBF3ttsNd9SfzgYB6L7ep1Yg1osYJzLdaKAYSLVh6e6jKnAuzj3bw1oGy9kXCb"
+  },
+  {
+    "source": "monero-oxide wallet/address tests (MIT)",
+    "network": "Mainnet",
+    "kind": "Standard",
+    "spend": "f8631661f6ab4e6fda310c797330d86e23a682f20d5bc8cc27b18051191f16d7",
+    "view": "4a1535063ad1fee2dabbf909d4fd9a873e29541b401f0944754e17c9a41820ce",
+    "address": "4B33mFPMq6mKi7Eiyd5XuyKRVMGVZz1Rqb9ZTyGApXW5d1aT7UBDZ89ewmnWFkzJ5wPd2SFbn313vCT8a4E2Qf4KQH4pNey"
+  },
+  {
+    "source": "monero-oxide wallet/address tests (MIT)",
+    "network": "Mainnet",
+    "kind": "Integrated",
+    "spend": "f8631661f6ab4e6fda310c797330d86e23a682f20d5bc8cc27b18051191f16d7",
+    "view": "4a1535063ad1fee2dabbf909d4fd9a873e29541b401f0944754e17c9a41820ce",
+    "payment_id": "b8963a57855cf73f",
+    "address": "4Ljin4CrSNHKi7Eiyd5XuyKRVMGVZz1Rqb9ZTyGApXW5d1aT7UBDZ89ewmnWFkzJ5wPd2SFbn313vCT8a4E2Qf4KbaTH6MnpXSn88oBX35"
+  },
+  {
+    "source": "monero-oxide wallet/address tests (MIT)",
+    "network": "Mainnet",
+    "kind": "Subaddress",
+    "spend": "fe358188b528335ad1cfdc24a22a23988d742c882b6f19a602892eaab3c1b62b",
+    "view": "9bc2b464de90d058468522098d5610c5019c45fd1711a9517db1eea7794f5470",
+    "address": "8C5zHM5ud8nGC4hC2ULiBLSWx9infi8JUUmWEat4fcTf8J4H38iWYVdFmPCA9UmfLTZxD43RsyKnGEdZkoGij6csDeUnbEB"
+  }
+]

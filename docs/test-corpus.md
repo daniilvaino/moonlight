@@ -11,7 +11,8 @@ What we have, where it came from, and what it can prove. Vectors before code.
 | `clsag/ring_data.json` | monero-oxide | MIT | the two rings that transaction was signed against, 16 members each |
 | `blocks/transactions.json` | monero-oxide | MIT | 5 real transactions with ids — 4 v2, 1 v1 |
 | `blocks/block_202612_transactions.txt` | monero-oxide | MIT | 514 transaction **ids** from block 202612 — the Merkle root and block id are checked against them |
-| `addresses/featured_addresses.json` | monero-oxide | MIT | 24 addresses, mainnet/stagenet/testnet |
+| `addresses/monero_addresses.json` | monero + monero-oxide | BSD-3, MIT | 4 real addresses: standard, integrated, subaddress |
+| `addresses/featured_addresses.json` | monero-oxide | MIT | 24 **Featured Addresses** — an unofficial extension with a flags byte, not consensus |
 
 ### tests.txt coverage
 
@@ -73,7 +74,7 @@ in code. The plan is to run them and capture the intermediate values.
 | `Crypto.Tests` | harness + grammar over all 5945 lines; Keccak; VarInt; 4526 replayed vectors; round-trip for the generators (48 tests) |
 | `Serialization.Tests` | corpus integrity; TxParser and TxHash against 5 real transactions; MerkleTree and BlockParser against block 202612 (22) |
 | `RingCT.Tests` | Pedersen, ECDH, CLSAG sign/verify, two real monero-made CLSAG signatures verified against their rings, and the real Bulletproof+ range proof from the same transaction (45) |
-| `Wallet.Tests` | address corpus integrity (2) |
+| `Wallet.Tests` | corpus integrity; Base58 and Address against real monero addresses (21) |
 | `Integration` | DaemonClient against canned monerod answers, no network (6); plus chain tests that run only when `MOONLIGHT_DAEMON` names a node (2) |
 
 The corpus tests assert the vector files themselves are intact. That is not busywork: a
