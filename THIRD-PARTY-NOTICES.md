@@ -10,6 +10,7 @@ MOONLIGHT is MIT ([LICENSE](LICENSE)). It contains code from the projects below;
 | MoneroSharp — English word list | `src/Wallet/Vendor/MoneroSharp/` | MIT | rohanrhu/MoneroSharp @ `98bc40f` |
 | Terminal.Gui v1 (SharpOS fork) | `apps/Tui/Vendor/TerminalGui/` | MIT | daniilvaino/SharpOS @ `0c00476` |
 | XtermSharp — `CharWidth.cs` only | `apps/Tui/Vendor/TerminalGui/XtermSharp/` | MIT | daniilvaino/XtermSharp @ `1bed529`, from migueldeicaza/XtermSharp |
+| QRCoder — generator only | `apps/Tui/Vendor/QRCoder/` | MIT | Shane32/QRCoder @ `faa9fb8` |
 | monero — `tests/crypto/tests.txt` | `tests/vectors/tests.txt` | BSD-3 | monero-project/monero @ `78fb311eb` |
 | monero-oxide — test vectors | `tests/vectors/{clsag,blocks,addresses}/` | MIT | monero-oxide/monero-oxide @ `731657a` |
 

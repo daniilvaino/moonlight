@@ -24,7 +24,7 @@ No P/Invoke, no native binaries, no NuGet packages in the parts that hold keys �
 |---|---------|------------|
 | <img src="media/hex-purple.svg" width="12" alt="sterile"> | [`src/`](src) | the sterile core — Ed25519, Keccak, serialization, RingCT, node, wallet |
 | <img src="media/hex-purple.svg" width="12" alt="sterile"> | [`apps/Cli`](apps/Cli) | NativeAOT command line — create, restore, addresses, sync |
-| <img src="media/hex-purple.svg" width="12" alt="sterile"> | [`apps/Tui`](apps/Tui) | vendored Terminal.Gui v1, console + SharpOS drivers, ~1.9 MB |
+| <img src="media/hex-purple.svg" width="12" alt="sterile"> | [`apps/Tui`](apps/Tui) | vendored Terminal.Gui v1 — dashboard, receive with a QR, outputs, node |
 | <img src="media/hex-orange.svg" width="12" alt="outside the gate"> | [`apps/Gui.Demo`](apps/Gui.Demo) | thin showcase over the wallet — packages allowed |
 | <img src="media/hex-orange.svg" width="12" alt="outside the gate"> | [`tests/`](tests) | the 5945-line corpus and its harness |
 
@@ -112,7 +112,7 @@ Steal what is stealable; port what is not. Every `Vendor/` tree carries a `VENDO
 | MoneroRing                              | MIT                          | crypto layer — copied                          |
 | ref10, through MoneroRing               | public domain (Chaos.NaCl, djb) | field, group and scalar arithmetic — copied |
 | MoneroSharp                             | MIT                          | mnemonic, Base58, network prefixes — copied, nothing else |
-| Terminal.Gui (SharpOS fork), XtermSharp | MIT                          | the TUI — copied                               |
+| Terminal.Gui (SharpOS fork), XtermSharp, QRCoder | MIT                | the TUI — copied                               |
 | monero-oxide                            | MIT (per crate, all checked) | Rust reference; BP+ transcript intermediates   |
 | monero                                  | BSD-3                        | vectors copied; src/ringct ported by hand      |
 | skunkworks, CantiLib, Determ            | GPL-3 / AGPL / undecided     | read only — never copied                       |

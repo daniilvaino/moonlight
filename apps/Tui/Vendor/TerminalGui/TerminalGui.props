@@ -16,6 +16,12 @@
   <ItemGroup>
     <!-- SharpOS has no System.Text.Rune; on net8 it exists and collides. -->
     <Using Include="System.Rune" Alias="Rune" />
+
+    <!-- QRCoder expects these from its own build props. -->
+    <Using Include="System.Collections.BitArray" Alias="BitArray" />
+    <Using Include="System.Globalization" />
+    <Using Include="System.Text" />
+    <Using Include="System.Text.RegularExpressions" />
   </ItemGroup>
 
   <ItemGroup>
@@ -27,6 +33,12 @@
     <Compile Include="$(MSBuildThisFileDirectory)SharpOS\TypeIdentity.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)SharpOS\StringsShim.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)XtermSharp\CharWidth.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- QRCoder, cut to the three files that produce the module matrix. The TUI
+         draws it with block characters, so none of the image renderers are here. -->
+    <Compile Include="$(MSBuildThisFileDirectory)..\QRCoder\**\*.cs" />
   </ItemGroup>
 
   <ItemGroup>
