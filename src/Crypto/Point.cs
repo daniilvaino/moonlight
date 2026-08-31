@@ -79,6 +79,25 @@ public readonly struct Point : IEquatable<Point>
         return new Point(image);
     }
 
+    public static Point operator +(Point a, Point b)
+    {
+        if (RingSig.ge_frombytes_vartime(out GroupElementP3 pa, a.Bytes) != 0 ||
+            RingSig.ge_frombytes_vartime(out GroupElementP3 pb, b.Bytes) != 0)
+        {
+            throw new InvalidOperationException("a Point that does not decompress");
+        }
+
+        GroupOperations.ge_p3_to_cached(out GroupElementCached cached, ref pb);
+        GroupOperations.ge_add(out GroupElementP1P1 sum, ref pa, ref cached);
+        GroupOperations.ge_p1p1_to_p2(out GroupElementP2 result, ref sum);
+
+        byte[] bytes = new byte[Size];
+        GroupOperations.ge_tobytes(bytes, 0, ref result);
+        return new Point(bytes);
+    }
+
+    public static Point Add(Point a, Point b) => a + b;
+
     public byte[] ToBytes() => Bytes.AsSpan().ToArray();
 
     public bool Equals(Point other) => Bytes.AsSpan().SequenceEqual(other.Bytes);
