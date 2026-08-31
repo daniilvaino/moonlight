@@ -17,7 +17,7 @@ public static class TxParser
     public static Transaction Parse(ReadOnlySpan<byte> blob)
     {
         Reader reader = new(blob);
-        Transaction tx = Parse(ref reader, blob);
+        Transaction tx = Parse(ref reader, blob, swallowProofs: true);
 
         if (!reader.AtEnd)
         {
@@ -27,7 +27,21 @@ public static class TxParser
         return tx;
     }
 
-    private static Transaction Parse(ref Reader reader, ReadOnlySpan<byte> blob)
+    /// <summary>
+    /// Parses a transaction that is embedded in something larger, reporting where
+    /// it ends. Only sound where the proofs are absent — a miner transaction — since
+    /// their length is not otherwise recoverable without parsing them.
+    /// </summary>
+    public static Transaction ParseEmbedded(ReadOnlySpan<byte> blob, out int consumed)
+    {
+        Reader reader = new(blob);
+        Transaction tx = Parse(ref reader, blob, swallowProofs: false);
+
+        consumed = reader.Position;
+        return tx;
+    }
+
+    private static Transaction Parse(ref Reader reader, ReadOnlySpan<byte> blob, bool swallowProofs)
     {
         ulong version = reader.ReadVarInt();
         if (version is 0 or > 2)
@@ -46,7 +60,7 @@ public static class TxParser
         {
             byte[][] signatures = ReadRingSignatures(ref reader, inputs);
             return new Transaction(version, unlockTime, inputs, outputs, extra, null, signatures,
-                blob.ToArray(), prefixLength, reader.Position);
+                blob[..reader.Position].ToArray(), prefixLength, reader.Position);
         }
 
         // An empty input list means there is no rctSigBase at all — monero skips it
@@ -56,10 +70,17 @@ public static class TxParser
 
         // The proofs are left as bytes: verifying them belongs to RingCT, and the
         // transaction hash needs exactly this range regardless.
-        reader.ReadBytes(reader.Remaining);
+        if (swallowProofs)
+        {
+            reader.ReadBytes(reader.Remaining);
+        }
+        else if (rct is not null && rct.Type != RctBase.Null)
+        {
+            throw new FormatException("an embedded transaction must carry no proofs");
+        }
 
         return new Transaction(version, unlockTime, inputs, outputs, extra, rct, [],
-            blob.ToArray(), prefixLength, unprunableLength);
+            blob[..reader.Position].ToArray(), prefixLength, unprunableLength);
     }
 
     private static TxIn[] ReadInputs(ref Reader reader)
