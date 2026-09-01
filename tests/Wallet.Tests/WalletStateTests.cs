@@ -9,10 +9,13 @@ public class WalletStateTests
 {
     private const ulong Xmr = 1_000_000_000_000;
 
+    /// <summary>Ten addresses is all these tests hand out; the default 50x200 is a second of derivations they do not need.</summary>
+    private static readonly SubaddressIndex Small = new(2, 10);
+
     private static (Account Account, WalletState State) NewWallet(ulong restoreHeight = 0)
     {
         Account account = Account.Create();
-        return (account, new WalletState(new Scanner(account), restoreHeight));
+        return (account, new WalletState(new Scanner(account, Small), restoreHeight));
     }
 
     [Fact]
@@ -118,8 +121,8 @@ public class WalletStateTests
     public void AViewOnlyWalletCannotSeeSpends()
     {
         Account account = Account.Create();
-        WalletState full = new(new Scanner(account));
-        WalletState viewOnly = new(new Scanner(account.AsViewOnly()));
+        WalletState full = new(new Scanner(account, Small));
+        WalletState viewOnly = new(new Scanner(account.AsViewOnly(), Small));
 
         Transaction payment = FakeSender.Pay(account.Address, [Xmr]);
         full.Process(100, [payment]);
@@ -174,7 +177,7 @@ public class WalletStateTests
     public void SubaddressPaymentsAreCredited()
     {
         Account account = Account.Create();
-        WalletState state = new(new Scanner(account));
+        WalletState state = new(new Scanner(account, Small));
 
         Address subaddress = Subaddress.Address(account, new SubaddressIndex(0, 7));
         state.Process(100, [FakeSender.Pay(subaddress, [4 * Xmr])]);

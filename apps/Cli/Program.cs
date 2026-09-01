@@ -48,6 +48,7 @@ internal static class Program
               --password <p>   read the password from the command line instead of a prompt
               --network <n>    mainnet (default), stagenet or testnet
               --daemon <url>   default http://127.0.0.1:18081/, or MOONLIGHT_DAEMON
+              --lookahead A,B  how many accounts and addresses a scan watches (default 50,200)
 
             This wallet can receive. It cannot spend yet.
             """);

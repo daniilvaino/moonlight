@@ -11,7 +11,7 @@ internal static class WalletCommands
         Refuse(path);
 
         Account account = Account.Create(Options.Network(args));
-        Save(path, account, Options.NewPassword(args), scannedHeight: 0);
+        Save(path, account, Options.NewPassword(args), scannedHeight: 0, Lookahead(args));
 
         Console.WriteLine($"address: {account.Address.Encode()}");
         Console.WriteLine();
@@ -43,7 +43,7 @@ internal static class WalletCommands
                 ? RestoreHeight.Estimate(DateTimeOffset.Parse(date, System.Globalization.CultureInfo.InvariantCulture))
                 : 0;
 
-        Save(path, account, Options.NewPassword(args), height);
+        Save(path, account, Options.NewPassword(args), height, Lookahead(args));
 
         Console.WriteLine($"address: {account.Address.Encode()}");
         Console.WriteLine($"scanning from block {height}");
@@ -53,7 +53,7 @@ internal static class WalletCommands
 
     public static int Address(string[] args)
     {
-        (Account account, _) = Open(args);
+        (Account account, _, _) = Open(args);
         string[] positional = Options.Positional(args);
 
         uint major = positional.Length > 1 ? uint.Parse(positional[1], System.Globalization.CultureInfo.InvariantCulture) : 0;
@@ -65,7 +65,7 @@ internal static class WalletCommands
 
     public static int Seed(string[] args)
     {
-        (Account account, _) = Open(args);
+        (Account account, _, _) = Open(args);
 
         Console.WriteLine(account.Seed);
         return 0;
@@ -73,7 +73,7 @@ internal static class WalletCommands
 
     public static int ShowBalance(string[] args)
     {
-        (Account _, ulong height) = Open(args);
+        (Account _, ulong height, _) = Open(args);
 
         // The file keeps the height but not the outputs yet, so this reports what
         // is known rather than pretending to a balance it cannot compute.
@@ -83,7 +83,7 @@ internal static class WalletCommands
         return 0;
     }
 
-    public static (Account Account, ulong ScannedHeight) Open(string[] args)
+    public static (Account Account, ulong ScannedHeight, SubaddressIndex Lookahead) Open(string[] args)
     {
         string path = Options.File(args);
 
@@ -95,8 +95,21 @@ internal static class WalletCommands
         return Storage.Decrypt(System.IO.File.ReadAllBytes(path), Options.Password(args));
     }
 
-    public static void Save(string path, Account account, string password, ulong scannedHeight)
-        => System.IO.File.WriteAllBytes(path, Storage.Encrypt(account, password, scannedHeight));
+    public static void Save(string path, Account account, string password, ulong scannedHeight, SubaddressIndex lookahead)
+        => System.IO.File.WriteAllBytes(path, Storage.Encrypt(account, password, scannedHeight, Storage.DefaultIterations, lookahead));
+
+    /// <summary>--lookahead 50,200 — how many accounts and addresses a scan watches.</summary>
+    public static SubaddressIndex Lookahead(string[] args)
+    {
+        if (Options.Optional(args, "lookahead") is not string given) return Storage.DefaultLookahead;
+
+        string[] parts = given.Split(',');
+
+        return parts.Length == 2
+            ? new SubaddressIndex(uint.Parse(parts[0], System.Globalization.CultureInfo.InvariantCulture),
+                                  uint.Parse(parts[1], System.Globalization.CultureInfo.InvariantCulture))
+            : throw new ArgumentException("--lookahead wants accounts,addresses — for example 50,200");
+    }
 
     private static void Refuse(string path)
     {

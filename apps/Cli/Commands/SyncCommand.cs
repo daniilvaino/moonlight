@@ -10,12 +10,12 @@ internal static class SyncCommand
 {
     public static async Task<int> Run(string[] args)
     {
-        (Account account, ulong from) = WalletCommands.Open(args);
+        (Account account, ulong from, SubaddressIndex lookahead) = WalletCommands.Open(args);
 
         using DaemonClient daemon = new(Options.Daemon(args));
         ulong height = await daemon.GetHeightAsync().ConfigureAwait(false);
 
-        Scanner scanner = new(account);
+        Scanner scanner = new(account, lookahead);
         WalletState state = new(scanner, from);
 
         Console.WriteLine($"scanning {from} to {height - 1} on {Options.Daemon(args)}");
@@ -56,7 +56,7 @@ internal static class SyncCommand
 
         // The wallet file remembers where scanning got to; the outputs themselves
         // are not persisted yet, so a rescan starts from the restore height.
-        WalletCommands.Save(Options.File(args), account, Options.Password(args), from);
+        WalletCommands.Save(Options.File(args), account, Options.Password(args), from, lookahead);
 
         return 0;
     }

@@ -34,24 +34,24 @@ public sealed class Scanner
     private readonly Dictionary<string, SubaddressIndex> subaddresses;
 
     /// <summary>A view-only scanner: it finds outputs and reads amounts, and cannot produce key images.</summary>
-    public Scanner(ViewOnlyAccount account, int accounts = 1, int addressesPerAccount = 200)
+    public Scanner(ViewOnlyAccount account, SubaddressIndex? lookahead = null)
     {
         ArgumentNullException.ThrowIfNull(account);
 
         viewSecret = account.ViewSecret;
         spendPublic = account.SpendPublic;
         spendSecret = null;
-        subaddresses = BuildTable(viewSecret, spendPublic, accounts, addressesPerAccount);
+        subaddresses = BuildTable(viewSecret, spendPublic, lookahead ?? Storage.DefaultLookahead);
     }
 
-    public Scanner(Account account, int accounts = 1, int addressesPerAccount = 200)
+    public Scanner(Account account, SubaddressIndex? lookahead = null)
     {
         ArgumentNullException.ThrowIfNull(account);
 
         viewSecret = account.ViewSecret;
         spendPublic = account.SpendPublic;
         spendSecret = account.SpendSecret;
-        subaddresses = BuildTable(viewSecret, spendPublic, accounts, addressesPerAccount);
+        subaddresses = BuildTable(viewSecret, spendPublic, lookahead ?? Storage.DefaultLookahead);
     }
 
     /// <summary>How many outputs were examined and how many the view tag let through.</summary>
@@ -187,17 +187,16 @@ public sealed class Scanner
     private static Dictionary<string, SubaddressIndex> BuildTable(
         Scalar viewSecret,
         Point spendPublic,
-        int accounts,
-        int addressesPerAccount)
+        SubaddressIndex lookahead)
     {
         Dictionary<string, SubaddressIndex> table = new(StringComparer.Ordinal)
         {
             [spendPublic.ToString()] = new SubaddressIndex(0, 0),
         };
 
-        for (uint major = 0; major < accounts; major++)
+        for (uint major = 0; major < lookahead.Major; major++)
         {
-            for (uint minor = 0; minor < addressesPerAccount; minor++)
+            for (uint minor = 0; minor < lookahead.Minor; minor++)
             {
                 if (major == 0 && minor == 0) continue;
 

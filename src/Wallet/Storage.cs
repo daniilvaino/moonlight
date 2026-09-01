@@ -31,7 +31,20 @@ public static class Storage
     /// </summary>
     public const int DefaultIterations = 500_000;
 
-    public static byte[] Encrypt(Account account, string password, ulong scannedHeight = 0, int iterations = DefaultIterations)
+    /// <summary>
+    /// How far ahead of the last used index to look for payments. wallet2 defaults
+    /// to 50 accounts of 200 addresses, and the number matters: a payment to a
+    /// subaddress outside the range is one the wallet never finds, with nothing
+    /// anywhere reporting a problem.
+    /// </summary>
+    public static readonly SubaddressIndex DefaultLookahead = new(50, 200);
+
+    public static byte[] Encrypt(
+        Account account,
+        string password,
+        ulong scannedHeight = 0,
+        int iterations = DefaultIterations,
+        SubaddressIndex? lookahead = null)
     {
         ArgumentNullException.ThrowIfNull(account);
         ArgumentException.ThrowIfNullOrEmpty(password);
@@ -49,10 +62,14 @@ public static class Storage
         nonce.CopyTo(header, Magic.Length + 4 + SaltLength);
         header[^1] = (byte)account.Network;
 
-        byte[] plaintext = new byte[64 + 8];
+        SubaddressIndex range = lookahead ?? DefaultLookahead;
+
+        byte[] plaintext = new byte[BodyLength];
         account.SpendSecret.ToBytes().CopyTo(plaintext, 0);
         account.ViewSecret.ToBytes().CopyTo(plaintext, 32);
         BinaryPrimitives.WriteUInt64LittleEndian(plaintext.AsSpan(64), scannedHeight);
+        BinaryPrimitives.WriteUInt32LittleEndian(plaintext.AsSpan(72), range.Major);
+        BinaryPrimitives.WriteUInt32LittleEndian(plaintext.AsSpan(76), range.Minor);
 
         byte[] ciphertext = new byte[plaintext.Length];
         byte[] tag = new byte[TagLength];
@@ -67,7 +84,18 @@ public static class Storage
         return [.. header, .. ciphertext, .. tag];
     }
 
-    public static (Account Account, ulong ScannedHeight) Decrypt(ReadOnlySpan<byte> file, string password)
+    /// <summary>
+    /// The body is 80 bytes; files written before the lookahead was stored are 72
+    /// and open with the default. The tag covers the length either way, so there is
+    /// nothing to guess at.
+    /// </summary>
+    private const int BodyLength = 80;
+
+    private const int BodyLengthWithoutLookahead = 72;
+
+    public static (Account Account, ulong ScannedHeight, SubaddressIndex Lookahead) Decrypt(
+        ReadOnlySpan<byte> file,
+        string password)
     {
         ArgumentException.ThrowIfNullOrEmpty(password);
 
@@ -106,7 +134,7 @@ public static class Storage
             throw new FormatException("wrong password, or the wallet file has been modified", e);
         }
 
-        if (plaintext.Length != 72)
+        if (plaintext.Length is not (BodyLength or BodyLengthWithoutLookahead))
         {
             throw new FormatException("wallet file has the wrong shape");
         }
@@ -117,9 +145,16 @@ public static class Storage
             network);
 
         ulong scannedHeight = BinaryPrimitives.ReadUInt64LittleEndian(plaintext.AsSpan(64));
+
+        SubaddressIndex lookahead = plaintext.Length == BodyLength
+            ? new SubaddressIndex(
+                BinaryPrimitives.ReadUInt32LittleEndian(plaintext.AsSpan(72)),
+                BinaryPrimitives.ReadUInt32LittleEndian(plaintext.AsSpan(76)))
+            : DefaultLookahead;
+
         CryptographicOperations.ZeroMemory(plaintext);
 
-        return (account, scannedHeight);
+        return (account, scannedHeight, lookahead);
     }
 
     private static byte[] DeriveKey(string password, ReadOnlySpan<byte> salt, int iterations)

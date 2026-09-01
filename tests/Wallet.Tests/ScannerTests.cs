@@ -19,6 +19,9 @@ public class ScannerTests
         Scalar.FromCanonical(Convert.FromHexString(SpendSecret)),
         Scalar.FromCanonical(Convert.FromHexString(ViewSecret)));
 
+    /// <summary>These transactions pay the main address, so one entry is enough.</summary>
+    private static readonly SubaddressIndex Small = new(1, 1);
+
     private static Transaction ClsagTransaction()
     {
         using JsonDocument document = Corpus.Json("clsag", "clsag_tx.json");
@@ -35,7 +38,7 @@ public class ScannerTests
     public void FindsTheChangeOutputOfARealTransaction()
     {
         Transaction tx = ClsagTransaction();
-        Scanner scanner = new(Wallet);
+        Scanner scanner = new(Wallet, Small);
 
         IReadOnlyList<OwnedOutput> found = scanner.Scan(tx, height: 0);
 
@@ -57,7 +60,7 @@ public class ScannerTests
     [Fact]
     public void TheViewTagRejectsWhatIsNotOurs()
     {
-        Scanner scanner = new(Wallet);
+        Scanner scanner = new(Wallet, Small);
         scanner.Scan(ClsagTransaction(), height: 0);
 
         Assert.Equal(2, scanner.Examined);
@@ -67,7 +70,7 @@ public class ScannerTests
     [Fact]
     public void AStrangerFindsNothing()
     {
-        Scanner scanner = new(Account.Create());
+        Scanner scanner = new(Account.Create(), Small);
 
         Assert.Empty(scanner.Scan(ClsagTransaction(), height: 0));
     }
@@ -82,8 +85,8 @@ public class ScannerTests
     {
         Transaction tx = ClsagTransaction();
 
-        OwnedOutput full = Assert.Single(new Scanner(Wallet).Scan(tx, 0));
-        OwnedOutput viewOnly = Assert.Single(new Scanner(Wallet.AsViewOnly()).Scan(tx, 0));
+        OwnedOutput full = Assert.Single(new Scanner(Wallet, Small).Scan(tx, 0));
+        OwnedOutput viewOnly = Assert.Single(new Scanner(Wallet.AsViewOnly(), Small).Scan(tx, 0));
 
         Assert.NotNull(full.KeyImage);
         Assert.Null(viewOnly.KeyImage);
@@ -104,8 +107,8 @@ public class ScannerTests
         Transaction tx = ClsagTransaction();
 
         Assert.Equal(
-            new Scanner(Wallet).Scan(tx, 0)[0].KeyImage,
-            new Scanner(Wallet).Scan(tx, 12345)[0].KeyImage);
+            new Scanner(Wallet, Small).Scan(tx, 0)[0].KeyImage,
+            new Scanner(Wallet, Small).Scan(tx, 12345)[0].KeyImage);
     }
 
     [Fact]
@@ -120,7 +123,7 @@ public class ScannerTests
 
             // Nobody here owns it, but the amounts are public either way.
             Assert.All(tx.Outputs, o => Assert.True(o.Amount > 0));
-            Assert.Empty(new Scanner(Wallet).Scan(tx, 0));
+            Assert.Empty(new Scanner(Wallet, Small).Scan(tx, 0));
         }
     }
 }

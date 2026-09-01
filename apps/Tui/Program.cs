@@ -30,7 +30,7 @@ internal static class Program
 
     private static void Run(string[] args)
     {
-        (Account account, ulong restoreHeight) = Load(args);
+        (Account account, ulong restoreHeight, SubaddressIndex lookahead) = Load(args);
 
         Uri daemon = new(Flag(args, "daemon")
             ?? Environment.GetEnvironmentVariable("MOONLIGHT_DAEMON")
@@ -43,7 +43,7 @@ internal static class Program
         // earlier keeps the colours that were in force when it was made.
         Theme.Apply();
 
-        Scanner scanner = new(account);
+        Scanner scanner = new(account, lookahead);
         WalletState state = new(scanner, restoreHeight);
 
         Dashboard dashboard = new(account) { X = 0, Y = 1, Width = Dim.Fill(), Height = 11 };
@@ -136,7 +136,7 @@ internal static class Program
         }
     }
 
-    private static (Account Account, ulong RestoreHeight) Load(string[] args)
+    private static (Account Account, ulong RestoreHeight, SubaddressIndex Lookahead) Load(string[] args)
     {
         string path = args[0];
 

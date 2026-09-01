@@ -15,7 +15,7 @@ public class StorageTests
         Account account = Account.Create();
 
         byte[] file = Storage.Encrypt(account, "correct horse", 2_500_000, Fast);
-        (Account restored, ulong height) = Storage.Decrypt(file, "correct horse");
+        (Account restored, ulong height, _) = Storage.Decrypt(file, "correct horse");
 
         Assert.Equal(account.SpendSecret, restored.SpendSecret);
         Assert.Equal(account.ViewSecret, restored.ViewSecret);
@@ -30,7 +30,7 @@ public class StorageTests
     public void RemembersTheNetwork(Network network)
     {
         Account account = Account.Create(network);
-        (Account restored, _) = Storage.Decrypt(Storage.Encrypt(account, "p", 0, Fast), "p");
+        (Account restored, _, _) = Storage.Decrypt(Storage.Encrypt(account, "p", 0, Fast), "p");
 
         Assert.Equal(network, restored.Network);
         Assert.Equal(account.Address.Encode(), restored.Address.Encode());
@@ -102,7 +102,7 @@ public class StorageTests
         Account account = Account.Create();
 
         // Written with one number, opened without being told which.
-        (Account restored, _) = Storage.Decrypt(Storage.Encrypt(account, "p", 0, 2000), "p");
+        (Account restored, _, _) = Storage.Decrypt(Storage.Encrypt(account, "p", 0, 2000), "p");
 
         Assert.Equal(account.SpendSecret, restored.SpendSecret);
     }
@@ -120,13 +120,30 @@ public class StorageTests
         Assert.Throws<ArgumentException>(() => Storage.Decrypt(new byte[100], ""));
     }
 
+    /// <summary>
+    /// The lookahead travels with the file. A wallet that forgot it would silently
+    /// stop watching the subaddresses it had already handed out.
+    /// </summary>
+    [Fact]
+    public void TheSubaddressLookaheadIsRemembered()
+    {
+        Account account = Account.Create();
+        SubaddressIndex wide = new(5, 1000);
+
+        (_, _, SubaddressIndex restored) = Storage.Decrypt(Storage.Encrypt(account, "p", 0, Fast, wide), "p");
+        Assert.Equal(wide, restored);
+
+        (_, _, SubaddressIndex fallback) = Storage.Decrypt(Storage.Encrypt(account, "p", 0, Fast), "p");
+        Assert.Equal(Storage.DefaultLookahead, fallback);
+    }
+
     /// <summary>The seed survives, which is what makes a wallet file a wallet and not a key blob.</summary>
     [Fact]
     public void ASeededWalletKeepsItsSeed()
     {
         Account account = Account.FromSeed(System.Security.Cryptography.RandomNumberGenerator.GetBytes(32));
 
-        (Account restored, _) = Storage.Decrypt(Storage.Encrypt(account, "p", 0, Fast), "p");
+        (Account restored, _, _) = Storage.Decrypt(Storage.Encrypt(account, "p", 0, Fast), "p");
 
         Assert.Equal(account.Seed, restored.Seed);
     }
