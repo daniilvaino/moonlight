@@ -8,6 +8,13 @@ namespace Moonlight.Node;
 public sealed record BlockBundle(Block Block, IReadOnlyList<Transaction> Transactions);
 
 /// <summary>
+/// A batch of blocks and where they sit. The daemon decides where to start from —
+/// it answers from the first block in our locator that it recognises — so the
+/// height it reports is the authority, not the one we asked for.
+/// </summary>
+public sealed record BlockBatch(ulong StartHeight, ulong ChainHeight, IReadOnlyList<BlockBundle> Blocks);
+
+/// <summary>
 /// monerod's binary endpoints. The JSON ones fetch a block per request; this
 /// fetches them in batches, which is the difference between scanning a chain in
 /// hours and in days.
@@ -19,7 +26,7 @@ public static class BinEndpoints
     /// request names the last block ids we know so the daemon can tell us where we
     /// diverge; passing the genesis id alone asks it to start from start_height.
     /// </summary>
-    public static async Task<IReadOnlyList<BlockBundle>> GetBlocksAsync(
+    public static async Task<BlockBatch> GetBlocksAsync(
         HttpClient http,
         ulong startHeight,
         IReadOnlyList<byte[]> knownBlockIds,
@@ -43,8 +50,21 @@ public static class BinEndpoints
         response.EnsureSuccessStatusCode();
 
         byte[] body = await response.Content.ReadAsByteArrayAsync(cancellationToken).ConfigureAwait(false);
-        return ParseBlocks(body);
+        return ParseBatch(body);
     }
+
+    /// <summary>The whole response: the blocks and the two heights that frame them.</summary>
+    public static BlockBatch ParseBatch(ReadOnlySpan<byte> response)
+    {
+        EpeeValue.Section root = PortableStorage.Parse(response);
+
+        return new BlockBatch(
+            Number(root["start_height"]),
+            Number(root["current_height"]),
+            ParseBlocks(response));
+    }
+
+    private static ulong Number(EpeeValue? value) => value is EpeeValue.Number number ? number.Value : 0;
 
     /// <summary>
     /// Reads the blocks out of a getblocks.bin response. Public because the shape of

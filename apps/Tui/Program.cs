@@ -74,6 +74,12 @@ internal static class Program
             top.SetNeedsDisplay();
         }
 
+        // Kept warm while the wallet is open: the loop catches up, then looks again
+        // every ten seconds — the shape wallet2's api uses, which is what Feather is
+        // built on. Scan now only nudges it awake.
+        using ChainSync sync = new(daemon, state);
+        using CancellationTokenSource stopping = new();
+
         top.Add(new MenuBar(
         [
             new MenuBarItem("_Wallet",
@@ -85,13 +91,14 @@ internal static class Program
                 new MenuItem("_Save", "", Save),
                 new MenuItem("_Quit", "", () =>
                 {
+                    stopping.Cancel();
                     Save();
                     Application.RequestStop();
                 }),
             ]),
             new MenuBarItem("_Sync",
             [
-                new MenuItem("_Scan now", "", () => _ = Sync(daemon, state, dashboard, history, startAtTip, Save)),
+                new MenuItem("_Scan now", "", () => sync.RefreshNow()),
             ]),
         ]));
 
@@ -107,71 +114,22 @@ internal static class Program
         dashboard.Update(state.Balance(), state.ScannedHeight, 0, state.Outputs.Count());
         history.Update(state.Outputs, state.IsSpent);
 
+        _ = sync.RunAsync(
+            progress => Application.MainLoop.Invoke(() =>
+            {
+                dashboard.Update(state.BalanceAt(progress.Height), progress.Height, progress.ChainHeight, progress.Outputs);
+                history.Update(state.Outputs, state.IsSpent);
+
+                // Written whenever it settles, so closing the window never costs a scan.
+                if (progress.CaughtUp) Save();
+            }),
+            cancellationToken: stopping.Token);
+
         Application.Run();
+        stopping.Cancel();
         Application.Shutdown();
     }
 
-    /// <summary>
-    /// Scanning, one block at a time, yielding to the interface between blocks so
-    /// the window stays alive. A wallet that freezes while it works looks broken.
-    /// </summary>
-    private static async Task Sync(
-        Uri daemon,
-        WalletState state,
-        Dashboard dashboard,
-        History history,
-        bool startAtTip,
-        Action save)
-    {
-        using DaemonClient client = new(daemon);
-
-        try
-        {
-            ulong height = await client.GetHeightAsync().ConfigureAwait(true);
-            ulong from = startAtTip && state.ScannedHeight == 0
-                ? RestoreHeight.Resolve(RestoreHeight.FromTip, height)
-                : state.ScannedHeight;
-
-            for (ulong at = from; at < height; at++)
-            {
-                Block block = await client.GetBlockAsync(at).ConfigureAwait(true);
-                List<Transaction> transactions = [block.MinerTransaction];
-
-                if (block.TransactionIds.Length > 0)
-                {
-                    string[] ids = [.. block.TransactionIds.Select(id => Convert.ToHexString(id).ToLowerInvariant())];
-                    transactions.AddRange((await client.GetTransactionsAsync(ids).ConfigureAwait(true))
-                        .Select(blob => TxParser.Parse(blob)));
-                }
-
-                state.Process(at, transactions);
-
-                if (at % 20 == 0 || at == height - 1)
-                {
-                    dashboard.Update(state.BalanceAt(at), at, height, state.Outputs.Count());
-                    history.Update(state.Outputs, state.IsSpent);
-                    Application.Refresh();
-                }
-
-                // Written as we go: an interrupted scan should not throw away the
-                // blocks it already read.
-                if (at % 500 == 0) save();
-            }
-
-            save();
-        }
-        catch (Exception e) when (e is HttpRequestException or DaemonException or FormatException)
-        {
-            save();
-            MessageBox.ErrorQuery("Sync", e.Message, "Ok");
-        }
-    }
-
-    /// <summary>
-    /// The password comes back with the wallet: saving needs it, and a save that
-    /// silently did nothing because it could not find one would be the worst of
-    /// both worlds.
-    /// </summary>
     private static (Account Account, WalletSnapshot Snapshot, SubaddressIndex Lookahead, string Password) Load(string[] args)
     {
         string path = args[0];

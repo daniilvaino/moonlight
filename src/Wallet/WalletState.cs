@@ -38,7 +38,15 @@ public sealed class WalletState
     /// <summary>Above this, an unlock time is a timestamp rather than a height.</summary>
     private const ulong MaxBlockNumber = 500_000_000;
 
+    /// <summary>
+    /// How many recent block ids to keep. They are the locator a daemon needs to
+    /// tell us where we stand after a reorganisation; ten is what wallet2 sends
+    /// before it starts spacing them out.
+    /// </summary>
+    private const int RecentBlocks = 10;
+
     private readonly Scanner scanner;
+    private readonly List<byte[]> recent = [];
     private readonly Dictionary<string, OwnedOutput> outputs = new(StringComparer.Ordinal);
     private readonly Dictionary<string, ulong> spentAt = new(StringComparer.Ordinal);
 
@@ -64,7 +72,24 @@ public sealed class WalletState
     /// Processes one block's transactions, the miner's first. Blocks must arrive in
     /// order: a gap is silently missing money, so it is refused.
     /// </summary>
-    public void Process(ulong height, IReadOnlyList<Transaction> transactions)
+    /// <summary>The ids of the last blocks processed, newest first.</summary>
+    public IReadOnlyList<byte[]> RecentBlockIds => recent;
+
+    /// <summary>
+    /// Moves the starting point without reading anything, for a wallet that begins
+    /// at the tip. Only legal before any block has been processed.
+    /// </summary>
+    public void SkipTo(ulong height)
+    {
+        if (outputs.Count > 0)
+        {
+            throw new InvalidOperationException("a wallet that has already scanned cannot skip");
+        }
+
+        ScannedHeight = height;
+    }
+
+    public void Process(ulong height, IReadOnlyList<Transaction> transactions, byte[]? blockId = null)
     {
         ArgumentNullException.ThrowIfNull(transactions);
 
@@ -81,6 +106,12 @@ public sealed class WalletState
             {
                 outputs[output.Key.ToString()] = output;
             }
+        }
+
+        if (blockId is not null)
+        {
+            recent.Insert(0, blockId);
+            if (recent.Count > RecentBlocks) recent.RemoveAt(recent.Count - 1);
         }
 
         ScannedHeight = height + 1;

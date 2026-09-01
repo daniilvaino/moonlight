@@ -1,6 +1,3 @@
-using System.Globalization;
-using Moonlight.Node;
-using Moonlight.Serialization;
 using Moonlight.Wallet;
 
 namespace Moonlight.Cli.Commands;
@@ -12,48 +9,29 @@ internal static class SyncCommand
     {
         (Account account, WalletSnapshot saved, SubaddressIndex lookahead) = WalletCommands.Open(args);
 
-        using DaemonClient daemon = new(Options.Daemon(args));
-        ulong height = await daemon.GetHeightAsync().ConfigureAwait(false);
-
-        ulong from = RestoreHeight.Resolve(saved.ScannedHeight, height);
-
-        Scanner scanner = new(account, lookahead);
-        WalletState state = new(scanner, from);
+        WalletState state = new(new Scanner(account, lookahead), saved.ScannedHeight);
         state.Restore(saved);
 
-        Console.WriteLine($"scanning {from} to {height - 1} on {Options.Daemon(args)}");
+        using ChainSync sync = new(Options.Daemon(args), state);
 
         DateTimeOffset started = DateTimeOffset.UtcNow;
-        ulong scanned = 0;
+        ulong from = state.ScannedHeight;
 
-        for (ulong at = from; at < height; at++)
-        {
-            Block block = await daemon.GetBlockAsync(at).ConfigureAwait(false);
+        Console.WriteLine($"scanning on {Options.Daemon(args)}");
 
-            List<Transaction> transactions = [block.MinerTransaction];
+        SyncProgress progress = await sync.CatchUpAsync(p => Report(p, from, started)).ConfigureAwait(false);
 
-            if (block.TransactionIds.Length > 0)
-            {
-                string[] ids = [.. block.TransactionIds.Select(id => Convert.ToHexString(id).ToLowerInvariant())];
-                transactions.AddRange((await daemon.GetTransactionsAsync(ids).ConfigureAwait(false)).Select(blob => TxParser.Parse(blob)));
-            }
-
-            state.Process(at, transactions);
-            scanned++;
-
-            if (scanned % 100 == 0) Report(state, at, height, started, scanner);
-        }
-
-        Report(state, height - 1, height, started, scanner);
-
-        Balance balance = state.BalanceAt(height - 1);
         Console.WriteLine();
-        Console.WriteLine($"balance:  {Format(balance.Total)} XMR");
-        Console.WriteLine($"unlocked: {Format(balance.Unlocked)} XMR");
+        Console.WriteLine($"caught up at block {progress.Height}");
+
+        Balance balance = state.BalanceAt(progress.Height == 0 ? 0 : progress.Height - 1);
+
+        Console.WriteLine($"balance:  {WalletCommands.Format(balance.Total)} XMR");
+        Console.WriteLine($"unlocked: {WalletCommands.Format(balance.Unlocked)} XMR");
 
         foreach (OwnedOutput output in state.Unspent.OrderBy(o => o.Height))
         {
-            Console.WriteLine($"  block {output.Height,9}  {Format(output.Amount),20} XMR  " +
+            Console.WriteLine($"  block {output.Height,9}  {WalletCommands.Format(output.Amount),20} XMR  " +
                 $"({output.Subaddress.Major},{output.Subaddress.Minor})");
         }
 
@@ -64,14 +42,11 @@ internal static class SyncCommand
         return 0;
     }
 
-    private static void Report(WalletState state, ulong at, ulong height, DateTimeOffset started, Scanner scanner)
+    private static void Report(SyncProgress progress, ulong from, DateTimeOffset started)
     {
         double seconds = (DateTimeOffset.UtcNow - started).TotalSeconds;
-        double rate = seconds > 0 ? (at - state.RestoreHeight + 1) / seconds : 0;
+        double rate = seconds > 0 ? (progress.Height - from) / seconds : 0;
 
-        Console.Write($"\rblock {at}/{height - 1}  {rate:F0} blocks/s  " +
-            $"outputs seen {scanner.Examined}, ours {state.Outputs.Count()}   ");
+        Console.Write($"\rblock {progress.Height}/{progress.ChainHeight - 1}  {rate:F0} blocks/s  outputs {progress.Outputs}   ");
     }
-
-    private static string Format(ulong atomic) => WalletCommands.Format(atomic);
 }

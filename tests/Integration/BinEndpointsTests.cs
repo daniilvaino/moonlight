@@ -31,6 +31,36 @@ public class BinEndpointsTests
         Assert.Empty(BinEndpoints.ParseBlocks(response));
     }
 
+    /// <summary>
+    /// The daemon says where the blocks it sent begin: it answers from the newest
+    /// id in our locator that it knows, which is not necessarily the height we
+    /// asked for. Believing our own number instead would file blocks under the
+    /// wrong heights after a reorganisation.
+    /// </summary>
+    [Fact]
+    public void TheDaemonsHeightsAreRead()
+    {
+        (byte[] blockBlob, byte[][] txs) = SampleBlock();
+
+        byte[] response = PortableWriter.Section(root =>
+        {
+            root.Bytes("status", "OK"u8);
+            root.Number("start_height", 2_500_000);
+            root.Number("current_height", 2_500_123);
+            root.Sections("blocks", [entry =>
+            {
+                entry.Bytes("block", blockBlob);
+                entry.BytesArray("txs", txs);
+            }]);
+        });
+
+        BlockBatch batch = BinEndpoints.ParseBatch(response);
+
+        Assert.Equal(2_500_000UL, batch.StartHeight);
+        Assert.Equal(2_500_123UL, batch.ChainHeight);
+        Assert.Single(batch.Blocks);
+    }
+
     [Fact]
     public void ReadsTheNestedEnvelope()
     {
