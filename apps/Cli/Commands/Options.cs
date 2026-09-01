@@ -60,8 +60,10 @@ internal static class Options
         var other => throw new ArgumentException($"unknown network '{other}'"),
     };
 
-    public static Uri Daemon(string[] args)
+    /// <summary>The flag wins, then the wallet's own last daemon, then the environment, then localhost.</summary>
+    public static Uri Daemon(string[] args, string? remembered = null)
         => new(Optional(args, "daemon")
+            ?? remembered
             ?? Environment.GetEnvironmentVariable("MOONLIGHT_DAEMON")
             ?? "http://127.0.0.1:18081/");
 

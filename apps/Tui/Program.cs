@@ -30,9 +30,11 @@ internal static class Program
 
     private static void Run(string[] args)
     {
-        (Account account, WalletSnapshot saved, SubaddressIndex lookahead, string password) = Load(args);
+        (WalletFile opened, string password) = Load(args);
+        (Account account, WalletSnapshot saved, SubaddressIndex lookahead, _) = opened;
 
         Uri daemon = new(Flag(args, "daemon")
+            ?? opened.Daemon
             ?? Environment.GetEnvironmentVariable("MOONLIGHT_DAEMON")
             ?? "http://127.0.0.1:18081/");
 
@@ -45,24 +47,30 @@ internal static class Program
 
         Scanner scanner = new(account, lookahead);
 
-        // A wallet that starts at the tip has no height until a daemon says so.
-        WalletState state = new(scanner, saved.ScannedHeight == RestoreHeight.FromTip ? 0 : saved.ScannedHeight);
+        // The marker is kept rather than flattened to zero: ChainSync resolves it
+        // against the chain, and turning it into 0 here is what made a new wallet
+        // start reading from the genesis block.
+        WalletState state = new(scanner, saved.ScannedHeight);
         if (saved.ScannedHeight != RestoreHeight.FromTip) state.Restore(saved);
 
         string path = args[0];
-        bool startAtTip = saved.ScannedHeight == RestoreHeight.FromTip;
+
+        Uri current = daemon;
 
         void Save()
             => File.WriteAllBytes(path, Storage.Encrypt(
-                account, password, state.ScannedHeight, Storage.DefaultIterations, lookahead, state.Snapshot()));
+                account, password, state.ScannedHeight, Storage.DefaultIterations, lookahead, state.Snapshot(),
+                current.ToString()));
 
-        Dashboard dashboard = new(account) { X = 0, Y = 1, Width = Dim.Fill(), Height = 11 };
-        History history = new() { X = 0, Y = 12, Width = Dim.Fill(), Height = Dim.Fill(1) };
+        Dashboard dashboard = new(account) { X = 0, Y = 0, Width = Dim.Fill(), Height = 11 };
+        History history = new() { X = 0, Y = 11, Width = Dim.Fill(), Height = Dim.Fill() };
         Receive receive = new(account) { X = 0, Y = 1, Width = Dim.Fill(), Height = Dim.Fill(1) };
         Screens.Node node = new(daemon) { X = 0, Y = 1, Width = Dim.Fill(), Height = Dim.Fill(1) };
 
         Toplevel top = Application.Top;
-        View main = new() { X = 0, Y = 0, Width = Dim.Fill(), Height = Dim.Fill() };
+        // Below the menu bar. At Y = 0 it drew straight over it, which is why the
+        // dashboard had no menu while every other screen did.
+        View main = new() { X = 0, Y = 1, Width = Dim.Fill(), Height = Dim.Fill() };
         main.Add(dashboard, history);
 
         void Show(View screen)
@@ -77,8 +85,39 @@ internal static class Program
         // Kept warm while the wallet is open: the loop catches up, then looks again
         // every ten seconds — the shape wallet2's api uses, which is what Feather is
         // built on. Scan now only nudges it awake.
-        using ChainSync sync = new(daemon, state);
         using CancellationTokenSource stopping = new();
+
+        ChainSync sync = new(current, state);
+        CancellationTokenSource running = CancellationTokenSource.CreateLinkedTokenSource(stopping.Token);
+
+        void StartSync()
+        {
+            _ = sync.RunAsync(
+                progress => Application.MainLoop.Invoke(() =>
+                {
+                    dashboard.Update(state.BalanceAt(progress.Height), progress.Height, progress.ChainHeight, progress.Outputs);
+                    history.Update(state.Outputs, state.IsSpent);
+
+                    // Written whenever it settles, so closing the window never costs a scan.
+                    if (progress.CaughtUp) Save();
+                }),
+                cancellationToken: running.Token);
+        }
+
+        // A different daemon means a different loop: the old one is stopped, the
+        // address is remembered, and scanning continues from where it stands.
+        node.Changed += chosen =>
+        {
+            running.Cancel();
+            sync.Dispose();
+
+            current = chosen;
+            sync = new ChainSync(current, state);
+            running = CancellationTokenSource.CreateLinkedTokenSource(stopping.Token);
+
+            Save();
+            StartSync();
+        };
 
         top.Add(new MenuBar(
         [
@@ -114,32 +153,23 @@ internal static class Program
         dashboard.Update(state.Balance(), state.ScannedHeight, 0, state.Outputs.Count());
         history.Update(state.Outputs, state.IsSpent);
 
-        _ = sync.RunAsync(
-            progress => Application.MainLoop.Invoke(() =>
-            {
-                dashboard.Update(state.BalanceAt(progress.Height), progress.Height, progress.ChainHeight, progress.Outputs);
-                history.Update(state.Outputs, state.IsSpent);
-
-                // Written whenever it settles, so closing the window never costs a scan.
-                if (progress.CaughtUp) Save();
-            }),
-            cancellationToken: stopping.Token);
+        StartSync();
 
         Application.Run();
         stopping.Cancel();
+        sync.Dispose();
         Application.Shutdown();
     }
 
-    private static (Account Account, WalletSnapshot Snapshot, SubaddressIndex Lookahead, string Password) Load(string[] args)
+    private static (WalletFile Wallet, string Password) Load(string[] args)
     {
         string path = args[0];
 
         if (!File.Exists(path)) throw new IOException($"no wallet at {path}");
 
         string password = Flag(args, "password") ?? Prompt();
-        (Account account, WalletSnapshot snapshot, SubaddressIndex lookahead) = Storage.Open(File.ReadAllBytes(path), password);
 
-        return (account, snapshot, lookahead, password);
+        return (Storage.Open(File.ReadAllBytes(path), password), password);
     }
 
     private static string Prompt()

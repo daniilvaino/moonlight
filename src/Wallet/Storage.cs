@@ -14,6 +14,9 @@ namespace Moonlight.Wallet;
 /// the whole file — so a modified file is refused rather than decrypted into
 /// something wrong.
 /// </remarks>
+/// <summary>Everything a wallet file holds.</summary>
+public sealed record WalletFile(Account Account, WalletSnapshot Snapshot, SubaddressIndex Lookahead, string? Daemon);
+
 public static class Storage
 {
     /// <summary>"MOONLIGHT" and a format version. A future format changes the version, not the meaning.</summary>
@@ -45,7 +48,8 @@ public static class Storage
         ulong scannedHeight = 0,
         int iterations = DefaultIterations,
         SubaddressIndex? lookahead = null,
-        WalletSnapshot? snapshot = null)
+        WalletSnapshot? snapshot = null,
+        string? daemon = null)
     {
         ArgumentNullException.ThrowIfNull(account);
         ArgumentException.ThrowIfNullOrEmpty(password);
@@ -74,6 +78,12 @@ public static class Storage
 
         List<byte> body = [.. fixedPart];
         SnapshotFormat.Write(body, snapshot ?? new WalletSnapshot(scannedHeight, [], new Dictionary<string, ulong>()));
+
+        // The daemon last used, so a wallet reopens against the node it was
+        // scanned with rather than whatever the default happens to be.
+        byte[] address = System.Text.Encoding.UTF8.GetBytes(daemon ?? "");
+        body.Add((byte)Math.Min(address.Length, 255));
+        body.AddRange(address.AsSpan(0, Math.Min(address.Length, 255)).ToArray());
 
         byte[] plaintext = [.. body];
 
@@ -104,13 +114,13 @@ public static class Storage
         ReadOnlySpan<byte> file,
         string password)
     {
-        (Account account, WalletSnapshot snapshot, SubaddressIndex lookahead) = Open(file, password);
+        WalletFile opened = Open(file, password);
 
-        return (account, snapshot.ScannedHeight, lookahead);
+        return (opened.Account, opened.Snapshot.ScannedHeight, opened.Lookahead);
     }
 
     /// <summary>The whole file, scan results included.</summary>
-    public static (Account Account, WalletSnapshot Snapshot, SubaddressIndex Lookahead) Open(
+    public static WalletFile Open(
         ReadOnlySpan<byte> file,
         string password)
     {
@@ -170,16 +180,23 @@ public static class Storage
             : DefaultLookahead;
 
         WalletSnapshot snapshot = new(scannedHeight, [], new Dictionary<string, ulong>());
+        string? daemon = null;
 
         if (plaintext.Length > BodyLength)
         {
             Serialization.Reader reader = new(plaintext.AsSpan(BodyLength));
             snapshot = SnapshotFormat.Read(ref reader, scannedHeight);
+
+            if (!reader.AtEnd)
+            {
+                byte length = reader.ReadByte();
+                if (length > 0) daemon = System.Text.Encoding.UTF8.GetString(reader.ReadBytes(length));
+            }
         }
 
         CryptographicOperations.ZeroMemory(plaintext);
 
-        return (account, snapshot, lookahead);
+        return new WalletFile(account, snapshot, lookahead, daemon);
     }
 
     private static byte[] DeriveKey(string password, ReadOnlySpan<byte> salt, int iterations)

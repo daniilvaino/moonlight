@@ -56,7 +56,7 @@ internal static class WalletCommands
 
     public static int Address(string[] args)
     {
-        (Account account, _, _) = Open(args);
+        Account account = Open(args).Account;
         string[] positional = Options.Positional(args);
 
         uint major = positional.Length > 1 ? uint.Parse(positional[1], System.Globalization.CultureInfo.InvariantCulture) : 0;
@@ -68,7 +68,7 @@ internal static class WalletCommands
 
     public static int Seed(string[] args)
     {
-        (Account account, _, _) = Open(args);
+        Account account = Open(args).Account;
 
         Console.WriteLine(account.Seed);
         return 0;
@@ -76,7 +76,8 @@ internal static class WalletCommands
 
     public static int ShowBalance(string[] args)
     {
-        (Account account, WalletSnapshot snapshot, SubaddressIndex lookahead) = Open(args);
+        WalletFile wallet = Open(args);
+        (Account account, WalletSnapshot snapshot, SubaddressIndex lookahead, _) = wallet;
 
         WalletState state = new(new Scanner(account, lookahead), snapshot.ScannedHeight);
         state.Restore(snapshot);
@@ -107,7 +108,7 @@ internal static class WalletCommands
     public static string Format(ulong atomic)
         => (atomic / 1_000_000_000_000m).ToString("0.############", System.Globalization.CultureInfo.InvariantCulture);
 
-    public static (Account Account, WalletSnapshot Snapshot, SubaddressIndex Lookahead) Open(string[] args)
+    public static WalletFile Open(string[] args)
     {
         string path = Options.File(args);
 
@@ -124,10 +125,11 @@ internal static class WalletCommands
         Account account,
         string password,
         SubaddressIndex lookahead,
-        WalletSnapshot snapshot)
+        WalletSnapshot snapshot,
+        string? daemon = null)
         => System.IO.File.WriteAllBytes(
             path,
-            Storage.Encrypt(account, password, snapshot.ScannedHeight, Storage.DefaultIterations, lookahead, snapshot));
+            Storage.Encrypt(account, password, snapshot.ScannedHeight, Storage.DefaultIterations, lookahead, snapshot, daemon));
 
     /// <summary>--lookahead 50,200 — how many accounts and addresses a scan watches.</summary>
     public static SubaddressIndex Lookahead(string[] args)

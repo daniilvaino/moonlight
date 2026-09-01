@@ -7,7 +7,7 @@ internal static class SyncCommand
 {
     public static async Task<int> Run(string[] args)
     {
-        (Account account, WalletSnapshot saved, SubaddressIndex lookahead) = WalletCommands.Open(args);
+        (Account account, WalletSnapshot saved, SubaddressIndex lookahead, _) = WalletCommands.Open(args);
 
         WalletState state = new(new Scanner(account, lookahead), saved.ScannedHeight);
         state.Restore(saved);
@@ -37,7 +37,7 @@ internal static class SyncCommand
 
         // Everything the scan found goes back into the file, so the next run starts
         // where this one stopped rather than reading the chain again.
-        WalletCommands.Save(Options.File(args), account, Options.Password(args), lookahead, state.Snapshot());
+        WalletCommands.Save(Options.File(args), account, Options.Password(args), lookahead, state.Snapshot(), Options.Daemon(args).ToString());
 
         return 0;
     }

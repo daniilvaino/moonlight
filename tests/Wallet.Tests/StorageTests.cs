@@ -166,7 +166,7 @@ public class StorageTests
         });
 
         byte[] file = Storage.Encrypt(account, "p", 0, Fast, null, snapshot);
-        (Account restored, WalletSnapshot back, _) = Storage.Open(file, "p");
+        (Account restored, WalletSnapshot back, _, _) = Storage.Open(file, "p");
 
         Assert.Equal(account.Address, restored.Address);
         Assert.Equal(3_000_001UL, back.ScannedHeight);
@@ -186,10 +186,26 @@ public class StorageTests
 
         WalletSnapshot snapshot = new(11, [output], new Dictionary<string, ulong>());
 
-        (_, WalletSnapshot back, _) = Storage.Open(
+        (_, WalletSnapshot back, _, _) = Storage.Open(
             Storage.Encrypt(Account.Create(), "p", 0, Fast, null, snapshot), "p");
 
         Assert.Null(Assert.Single(back.Outputs).KeyImage);
+    }
+
+    /// <summary>
+    /// The daemon last used travels with the wallet, so reopening it does not
+    /// silently point somewhere else.
+    /// </summary>
+    [Fact]
+    public void TheDaemonIsRemembered()
+    {
+        Account account = Account.Create();
+
+        WalletFile withDaemon = Storage.Open(
+            Storage.Encrypt(account, "p", 0, Fast, null, null, "http://node.example:18081/"), "p");
+
+        Assert.Equal("http://node.example:18081/", withDaemon.Daemon);
+        Assert.Null(Storage.Open(Storage.Encrypt(account, "p", 0, Fast), "p").Daemon);
     }
 
     /// <summary>The seed survives, which is what makes a wallet file a wallet and not a key blob.</summary>
