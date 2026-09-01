@@ -56,7 +56,7 @@ nix develop                    # SDK 10 + SDK 8 + pwsh, then build by hand
 
 The dev shell carries no C toolchain on macOS: ILC calls `clang`, `dsymutil` and `strip` by name, and Nixpkgs' `strip` rejects the flags it passes, so Xcode's command line tools stay in front. The packages build hermetically on all three platforms regardless.
 
-NuGet is locked in `nix/deps/*.json`. Only `tests/` pulls packages — the two apps resolve nothing but the ILCompiler. After changing a `PackageReference`, regenerate the matching lock (`.#moonlight-tui` for `tui.json`, `.#checks.<system>.tests` for `tests.json`):
+NuGet is locked in `nix/deps/*.json`. Only `tests/` pulls packages; the two apps pull none, so their locks are empty and have to stay that way. The ILCompiler is not an exception — it comes from the combined SDK, and listing it as well makes two inputs offer the same package to `configureNuget`, which links them with a bare `ln -s` and fails on the second. After changing a `PackageReference`, regenerate the matching lock (`.#moonlight-tui` for `tui.json`, `.#checks.<system>.tests` for `tests.json`):
 
 ```sh
 $(nix build --no-link --print-out-paths .#moonlight.passthru.fetch-deps) "$PWD/nix/deps/cli.json"
