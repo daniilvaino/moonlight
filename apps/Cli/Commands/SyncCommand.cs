@@ -38,7 +38,7 @@ internal static class SyncCommand
 
         // Everything the scan found goes back into the file, so the next run starts
         // where this one stopped rather than reading the chain again.
-        WalletCommands.Save(Options.File(args), account, wallet.Seal!, lookahead, state.Snapshot(), Options.Daemon(args, wallet.Daemon).ToString());
+        WalletCommands.Save(Options.File(args), account, wallet.Seal!, wallet.Document, state.Snapshot(), Options.Daemon(args, wallet.Daemon).ToString());
 
         return 0;
     }

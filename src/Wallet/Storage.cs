@@ -19,6 +19,19 @@ public sealed record WalletFile(Account Account, WalletSnapshot Snapshot, Subadd
 {
     /// <summary>The key this file was opened with, so saving it again is cheap.</summary>
     public WalletSeal? Seal { get; init; }
+
+    /// <summary>The readable half of the file.</summary>
+    public WalletDocument Document { get; init; } = new();
+
+    /// <summary>The settings this wallet last wrote, as it recorded them.</summary>
+    public byte[] Fingerprint { get; init; } = [];
+
+    /// <summary>
+    /// True when the settings on disk are not the ones this wallet last wrote.
+    /// Editing them by hand is allowed and expected; being redirected to another
+    /// node without noticing is not, so the wallet is told rather than stopped.
+    /// </summary>
+    public bool SettingsChangedOutside { get; init; }
 }
 
 /// <summary>
@@ -83,6 +96,15 @@ public static class Storage
         return new WalletSeal(salt, DeriveKey(password, salt, iterations), iterations);
     }
 
+    /// <summary>Wraps the encrypted blob in the readable document and writes it whole.</summary>
+    public static void Save(string path, WalletDocument document, byte[] secret)
+    {
+        ArgumentNullException.ThrowIfNull(document);
+        ArgumentNullException.ThrowIfNull(secret);
+
+        Save(path, (document with { Secret = Convert.ToBase64String(secret) }).ToBytes());
+    }
+
     /// <summary>
     /// Writes the file without ever leaving it half-written. WriteAllBytes truncates
     /// first, so a process that dies mid-write takes the keys with it; this writes
@@ -128,7 +150,8 @@ public static class Storage
         ulong scannedHeight = 0,
         SubaddressIndex? lookahead = null,
         WalletSnapshot? snapshot = null,
-        string? daemon = null)
+        string? daemon = null,
+        ReadOnlySpan<byte> settingsFingerprint = default)
     {
         ArgumentNullException.ThrowIfNull(account);
         ArgumentNullException.ThrowIfNull(seal);
@@ -163,6 +186,10 @@ public static class Storage
         byte[] address = System.Text.Encoding.UTF8.GetBytes(daemon ?? "");
         body.Add((byte)Math.Min(address.Length, 255));
         body.AddRange(address.AsSpan(0, Math.Min(address.Length, 255)).ToArray());
+
+        // The settings live outside where they can be read and edited; their hash
+        // lives in here, so a wallet can tell when something else changed them.
+        if (!settingsFingerprint.IsEmpty) body.AddRange(settingsFingerprint.ToArray());
 
         byte[] plaintext = [.. body];
 
@@ -199,6 +226,20 @@ public static class Storage
     }
 
     /// <summary>The whole file, scan results included.</summary>
+    /// <summary>Opens a wallet document: reads the settings, then the blob inside it.</summary>
+    public static WalletFile OpenDocument(ReadOnlySpan<byte> file, string password)
+    {
+        WalletDocument document = WalletDocument.Parse(file);
+        WalletFile opened = Open(Convert.FromBase64String(document.Secret), password);
+
+        return opened with
+        {
+            Document = document,
+            Lookahead = document.Settings.Lookahead,
+            SettingsChangedOutside = !opened.Fingerprint.AsSpan().SequenceEqual(document.SettingsFingerprint()),
+        };
+    }
+
     public static WalletFile Open(
         ReadOnlySpan<byte> file,
         string password)
@@ -261,6 +302,7 @@ public static class Storage
 
         WalletSnapshot snapshot = new(scannedHeight, [], new Dictionary<string, ulong>());
         string? daemon = null;
+        byte[] fingerprint = [];
 
         if (plaintext.Length > BodyLength)
         {
@@ -272,6 +314,8 @@ public static class Storage
                 byte length = reader.ReadByte();
                 if (length > 0) daemon = System.Text.Encoding.UTF8.GetString(reader.ReadBytes(length));
             }
+
+            if (reader.Remaining >= 32) fingerprint = reader.ReadArray(32);
         }
 
         CryptographicOperations.ZeroMemory(plaintext);
@@ -280,6 +324,7 @@ public static class Storage
         return new WalletFile(account, snapshot, lookahead, daemon)
         {
             Seal = new WalletSeal(salt.ToArray(), key, iterations),
+            Fingerprint = fingerprint,
         };
     }
 

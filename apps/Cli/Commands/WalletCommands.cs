@@ -13,7 +13,7 @@ internal static class WalletCommands
         Account account = Account.Create(Options.Network(args));
         // A new wallet has no history: it starts at the tip, resolved on the first
         // scan rather than now, so creating one needs no daemon.
-        Save(path, account, Storage.Seal(Options.NewPassword(args)), Lookahead(args), Empty(RestoreHeight.FromTip));
+        Save(path, account, Storage.Seal(Options.NewPassword(args)), NewDocument(args, account), Empty(RestoreHeight.FromTip));
 
         Console.WriteLine($"address: {account.Address.Encode()}");
         Console.WriteLine("scanning from the current tip — nothing before now can be yours");
@@ -46,7 +46,7 @@ internal static class WalletCommands
                 ? RestoreHeight.Estimate(DateTimeOffset.Parse(date, System.Globalization.CultureInfo.InvariantCulture))
                 : 0;
 
-        Save(path, account, Storage.Seal(Options.NewPassword(args)), Lookahead(args), Empty(height));
+        Save(path, account, Storage.Seal(Options.NewPassword(args)), NewDocument(args, account), Empty(height));
 
         Console.WriteLine($"address: {account.Address.Encode()}");
         Console.WriteLine($"scanning from block {height}");
@@ -117,17 +117,52 @@ internal static class WalletCommands
             throw new IOException($"no wallet at {path}");
         }
 
-        return Storage.Open(System.IO.File.ReadAllBytes(path), Options.Password(args));
+        WalletFile wallet = Storage.OpenDocument(System.IO.File.ReadAllBytes(path), Options.Password(args));
+
+        // Editing the file by hand is allowed. Being redirected to another node
+        // without noticing is not, so every command says so, not just some.
+        if (wallet.SettingsChangedOutside)
+        {
+            Console.Error.WriteLine("note: the settings in this file were changed outside the wallet");
+        }
+
+        return wallet;
     }
 
     public static void Save(
         string path,
         Account account,
         WalletSeal seal,
-        SubaddressIndex lookahead,
+        WalletDocument document,
         WalletSnapshot snapshot,
         string? daemon = null)
-        => Storage.Save(path, Storage.Encrypt(account, seal, snapshot.ScannedHeight, lookahead, snapshot, daemon));
+    {
+        WalletDocument updated = document with
+        {
+            Network = account.Network.ToString(),
+            Settings = daemon is null ? document.Settings : document.Settings with { Nodes = [daemon] },
+        };
+
+        Storage.Save(path, updated, Storage.Encrypt(
+            account, seal, snapshot.ScannedHeight, updated.Settings.Lookahead, snapshot, daemon,
+            updated.SettingsFingerprint()));
+    }
+
+    private static WalletDocument NewDocument(string[] args, Account account)
+    {
+        SubaddressIndex lookahead = Lookahead(args);
+
+        return new WalletDocument
+        {
+            Network = account.Network.ToString(),
+            Settings = new WalletSettings
+            {
+                Nodes = Options.Optional(args, "daemon") is string node ? [node] : [],
+                LookaheadAccounts = lookahead.Major,
+                LookaheadAddresses = lookahead.Minor,
+            },
+        };
+    }
 
     /// <summary>--lookahead 50,200 — how many accounts and addresses a scan watches.</summary>
     public static SubaddressIndex Lookahead(string[] args)

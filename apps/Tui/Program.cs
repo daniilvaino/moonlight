@@ -34,6 +34,7 @@ internal static class Program
         (Account account, WalletSnapshot saved, SubaddressIndex lookahead, _) = opened;
 
         Uri daemon = new(Flag(args, "daemon")
+            ?? opened.Document.Settings.Nodes.FirstOrDefault()
             ?? opened.Daemon
             ?? Environment.GetEnvironmentVariable("MOONLIGHT_DAEMON")
             ?? "http://127.0.0.1:18081/");
@@ -58,8 +59,17 @@ internal static class Program
         Uri current = daemon;
 
         void Save()
-            => Storage.Save(path, Storage.Encrypt(
-                account, opened.Seal!, state.ScannedHeight, lookahead, state.Snapshot(), current.ToString()));
+        {
+            WalletDocument document = opened.Document with
+            {
+                Network = account.Network.ToString(),
+                Settings = opened.Document.Settings with { Nodes = [current.ToString()] },
+            };
+
+            Storage.Save(path, document, Storage.Encrypt(
+                account, opened.Seal!, state.ScannedHeight, lookahead, state.Snapshot(), current.ToString(),
+                document.SettingsFingerprint()));
+        }
 
         Dashboard dashboard = new(account) { X = 0, Y = 0, Width = Dim.Fill(), Height = 11 };
         History history = new() { X = 0, Y = 11, Width = Dim.Fill(), Height = Dim.Fill() };
@@ -166,7 +176,7 @@ internal static class Program
 
         if (!File.Exists(path)) throw new IOException($"no wallet at {path}");
 
-        return Storage.Open(File.ReadAllBytes(path), Flag(args, "password") ?? Prompt());
+        return Storage.OpenDocument(File.ReadAllBytes(path), Flag(args, "password") ?? Prompt());
     }
 
     private static string Prompt()

@@ -20,7 +20,22 @@ apps             Cli · Tui · Gui.Demo (outside the gate)
 | `Serialization` | ours; ref `monero/src/cryptonote_basic`, Epee cross-checked vs monero-oxide |
 | `RingCT` | hand port of `src/ringct/*.cc`; CLSAG first in C#; BP+ transcript verified step by step vs monero-oxide |
 | `Node` | ours. JSON-RPC over `HttpClient`, with source-generated `System.Text.Json` — reflection-based JSON does not survive trimming or AOT |
-| `Wallet` | `Vendor/MoneroSharp` (mnemonic/Base58/prefixes only); rest ours |
+| `Wallet` | `Vendor/MoneroSharp` (English word list only); rest ours |
+
+## The wallet file
+
+JSON with one opaque field. Settings — nodes, where to fetch more, where a price
+comes from, the subaddress lookahead — are readable and editable by hand. Everything
+else lives in `secret`: the two keys, and the outputs a scan found.
+
+The split is not "keys versus the rest". An output says what the wallet holds, and
+its key image identifies that wallet's spends on the chain, so the scan results are
+as revealing as the keys and stay inside.
+
+Settings are outside the authenticated envelope so they can be edited, which means
+they can also be changed by somebody else — a node quietly redirected is a privacy
+attack. Their hash is stored inside the blob, so the wallet reports that they
+changed rather than either refusing to open or saying nothing.
 
 Key material is never `byte[]`: `SecretKey`/`PublicKey`/`KeyImage`/`Commitment` are
 distinct types with no implicit conversions.
