@@ -11,10 +11,11 @@ internal static class SyncCommand
     public static async Task<int> Run(string[] args)
     {
         (Account account, WalletSnapshot saved, SubaddressIndex lookahead) = WalletCommands.Open(args);
-        ulong from = saved.ScannedHeight;
 
         using DaemonClient daemon = new(Options.Daemon(args));
         ulong height = await daemon.GetHeightAsync().ConfigureAwait(false);
+
+        ulong from = RestoreHeight.Resolve(saved.ScannedHeight, height);
 
         Scanner scanner = new(account, lookahead);
         WalletState state = new(scanner, from);

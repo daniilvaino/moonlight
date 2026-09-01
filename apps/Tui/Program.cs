@@ -30,7 +30,7 @@ internal static class Program
 
     private static void Run(string[] args)
     {
-        (Account account, WalletSnapshot saved, SubaddressIndex lookahead) = Load(args);
+        (Account account, WalletSnapshot saved, SubaddressIndex lookahead, string password) = Load(args);
 
         Uri daemon = new(Flag(args, "daemon")
             ?? Environment.GetEnvironmentVariable("MOONLIGHT_DAEMON")
@@ -44,8 +44,17 @@ internal static class Program
         Theme.Apply();
 
         Scanner scanner = new(account, lookahead);
-        WalletState state = new(scanner, saved.ScannedHeight);
-        state.Restore(saved);
+
+        // A wallet that starts at the tip has no height until a daemon says so.
+        WalletState state = new(scanner, saved.ScannedHeight == RestoreHeight.FromTip ? 0 : saved.ScannedHeight);
+        if (saved.ScannedHeight != RestoreHeight.FromTip) state.Restore(saved);
+
+        string path = args[0];
+        bool startAtTip = saved.ScannedHeight == RestoreHeight.FromTip;
+
+        void Save()
+            => File.WriteAllBytes(path, Storage.Encrypt(
+                account, password, state.ScannedHeight, Storage.DefaultIterations, lookahead, state.Snapshot()));
 
         Dashboard dashboard = new(account) { X = 0, Y = 1, Width = Dim.Fill(), Height = 11 };
         History history = new() { X = 0, Y = 12, Width = Dim.Fill(), Height = Dim.Fill(1) };
@@ -73,11 +82,16 @@ internal static class Program
                 new MenuItem("_Receive", "", () => Show(receive)),
                 new MenuItem("_Node", "", () => Show(node)),
                 null!,
-                new MenuItem("_Quit", "", () => Application.RequestStop()),
+                new MenuItem("_Save", "", Save),
+                new MenuItem("_Quit", "", () =>
+                {
+                    Save();
+                    Application.RequestStop();
+                }),
             ]),
             new MenuBarItem("_Sync",
             [
-                new MenuItem("_Scan now", "", () => _ = Sync(daemon, state, scanner, dashboard, history)),
+                new MenuItem("_Scan now", "", () => _ = Sync(daemon, state, dashboard, history, startAtTip, Save)),
             ]),
         ]));
 
@@ -101,15 +115,24 @@ internal static class Program
     /// Scanning, one block at a time, yielding to the interface between blocks so
     /// the window stays alive. A wallet that freezes while it works looks broken.
     /// </summary>
-    private static async Task Sync(Uri daemon, WalletState state, Scanner scanner, Dashboard dashboard, History history)
+    private static async Task Sync(
+        Uri daemon,
+        WalletState state,
+        Dashboard dashboard,
+        History history,
+        bool startAtTip,
+        Action save)
     {
         using DaemonClient client = new(daemon);
 
         try
         {
             ulong height = await client.GetHeightAsync().ConfigureAwait(true);
+            ulong from = startAtTip && state.ScannedHeight == 0
+                ? RestoreHeight.Resolve(RestoreHeight.FromTip, height)
+                : state.ScannedHeight;
 
-            for (ulong at = state.ScannedHeight; at < height; at++)
+            for (ulong at = from; at < height; at++)
             {
                 Block block = await client.GetBlockAsync(at).ConfigureAwait(true);
                 List<Transaction> transactions = [block.MinerTransaction];
@@ -129,23 +152,36 @@ internal static class Program
                     history.Update(state.Outputs, state.IsSpent);
                     Application.Refresh();
                 }
+
+                // Written as we go: an interrupted scan should not throw away the
+                // blocks it already read.
+                if (at % 500 == 0) save();
             }
+
+            save();
         }
         catch (Exception e) when (e is HttpRequestException or DaemonException or FormatException)
         {
+            save();
             MessageBox.ErrorQuery("Sync", e.Message, "Ok");
         }
     }
 
-    private static (Account Account, WalletSnapshot Snapshot, SubaddressIndex Lookahead) Load(string[] args)
+    /// <summary>
+    /// The password comes back with the wallet: saving needs it, and a save that
+    /// silently did nothing because it could not find one would be the worst of
+    /// both worlds.
+    /// </summary>
+    private static (Account Account, WalletSnapshot Snapshot, SubaddressIndex Lookahead, string Password) Load(string[] args)
     {
         string path = args[0];
 
         if (!File.Exists(path)) throw new IOException($"no wallet at {path}");
 
         string password = Flag(args, "password") ?? Prompt();
+        (Account account, WalletSnapshot snapshot, SubaddressIndex lookahead) = Storage.Open(File.ReadAllBytes(path), password);
 
-        return Storage.Open(File.ReadAllBytes(path), password);
+        return (account, snapshot, lookahead, password);
     }
 
     private static string Prompt()

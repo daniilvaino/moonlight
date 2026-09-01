@@ -50,6 +50,11 @@ internal static class Program
               --daemon <url>   default http://127.0.0.1:18081/, or MOONLIGHT_DAEMON
               --lookahead A,B  how many accounts and addresses a scan watches (default 50,200)
 
+            Restoring
+              --restore-height <n>     start scanning at a block
+              --restore-date <date>    start at the first block on or after a date
+                                       neither: from the genesis block, which is slow but misses nothing
+
             This wallet can receive. It cannot spend yet.
             """);
 

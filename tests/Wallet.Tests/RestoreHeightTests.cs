@@ -53,6 +53,22 @@ public class RestoreHeightTests
         }
     }
 
+    /// <summary>
+    /// A wallet made just now cannot own anything older than now, so it starts at
+    /// the tip. The height is only known once a daemon answers, which is why the
+    /// file carries a marker rather than a number.
+    /// </summary>
+    [Fact]
+    public void ANewWalletStartsAtTheTip()
+    {
+        Assert.Equal(2_999_999UL, RestoreHeight.Resolve(RestoreHeight.FromTip, 3_000_000));
+        Assert.Equal(0UL, RestoreHeight.Resolve(RestoreHeight.FromTip, 0));
+
+        // A real height is left exactly as it is.
+        Assert.Equal(1_234UL, RestoreHeight.Resolve(1_234, 3_000_000));
+        Assert.Equal(0UL, RestoreHeight.Resolve(0, 3_000_000));
+    }
+
     [Fact]
     public void ClampsBeforeGenesis()
     {

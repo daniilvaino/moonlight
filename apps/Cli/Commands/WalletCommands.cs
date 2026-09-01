@@ -11,9 +11,12 @@ internal static class WalletCommands
         Refuse(path);
 
         Account account = Account.Create(Options.Network(args));
-        Save(path, account, Options.NewPassword(args), Lookahead(args), Empty(0));
+        // A new wallet has no history: it starts at the tip, resolved on the first
+        // scan rather than now, so creating one needs no daemon.
+        Save(path, account, Options.NewPassword(args), Lookahead(args), Empty(RestoreHeight.FromTip));
 
         Console.WriteLine($"address: {account.Address.Encode()}");
+        Console.WriteLine("scanning from the current tip — nothing before now can be yours");
         Console.WriteLine();
         Console.WriteLine("seed — write it down, it is the only way back:");
         Console.WriteLine($"  {account.Seed}");
@@ -77,6 +80,12 @@ internal static class WalletCommands
 
         WalletState state = new(new Scanner(account, lookahead), snapshot.ScannedHeight);
         state.Restore(snapshot);
+
+        if (snapshot.ScannedHeight == RestoreHeight.FromTip)
+        {
+            Console.WriteLine("not scanned yet — this wallet starts at the tip; run 'moonlight sync'");
+            return 0;
+        }
 
         ulong at = snapshot.ScannedHeight == 0 ? 0 : snapshot.ScannedHeight - 1;
         Balance balance = state.BalanceAt(at);

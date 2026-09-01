@@ -10,6 +10,18 @@ namespace Moonlight.Wallet;
 public static class RestoreHeight
 {
     /// <summary>
+    /// "Start at the tip." A wallet created just now has no history, so scanning
+    /// from zero would read years of chain to find nothing. The height is resolved
+    /// the first time a daemon is reachable, not at creation, because creating a
+    /// wallet must work with no network at all.
+    /// </summary>
+    public const ulong FromTip = ulong.MaxValue;
+
+    /// <summary>Where a scan should actually begin, given what the file remembers and where the chain is now.</summary>
+    public static ulong Resolve(ulong remembered, ulong chainHeight)
+        => remembered == FromTip ? (chainHeight == 0 ? 0 : chainHeight - 1) : remembered;
+
+    /// <summary>
     /// Block 202612 and the second it was mined at — the one height/timestamp pair
     /// this repository can check without a daemon, since the corpus carries that
     /// block's contents.
