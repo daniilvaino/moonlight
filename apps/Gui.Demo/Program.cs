@@ -1,6 +1,14 @@
+using Avalonia;
+
 namespace Moonlight.Gui.Demo;
 
 internal static class Program
 {
-    private static void Main() => Console.WriteLine("Moonlight GUI demo");
+    [STAThread]
+    private static void Main(string[] args) => BuildAvaloniaApp().StartWithClassicDesktopLifetime(args);
+
+    public static AppBuilder BuildAvaloniaApp() => AppBuilder
+        .Configure<App>()
+        .UsePlatformDetect()
+        .LogToTrace();
 }

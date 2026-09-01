@@ -1,0 +1,62 @@
+<UserControl
+    x:Class="Moonlight.Gui.Demo.Views.HistoryView"
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    x:CompileBindings="False"
+    Margin="13,11,13,11">
+  <Grid RowDefinitions="25,7,*">
+    <Grid ColumnDefinitions="*,25" ColumnSpacing="6">
+      <TextBox x:Name="SearchBox" PlaceholderText="Search..." TextChanged="SearchChanged" />
+      <Button Grid.Column="1" Classes="tool" Content="☷" ToolTip.Tip="Columns and filters">
+        <Button.Flyout>
+          <MenuFlyout>
+            <MenuItem Header="Date" ToggleType="CheckBox" IsChecked="True" />
+            <MenuItem Header="Transaction ID" ToggleType="CheckBox" IsChecked="False" Click="ToggleTransactionId" />
+            <MenuItem Header="Description" ToggleType="CheckBox" IsChecked="True" />
+            <MenuItem Header="Amount" ToggleType="CheckBox" IsChecked="True" />
+            <Separator />
+            <MenuItem Header="Show full transaction IDs" ToggleType="CheckBox" />
+          </MenuFlyout>
+        </Button.Flyout>
+      </Button>
+    </Grid>
+    <DataGrid x:Name="Table"
+              Grid.Row="2"
+              AutoGenerateColumns="False"
+              IsReadOnly="False"
+              SelectionMode="Single">
+      <DataGrid.ContextMenu>
+        <ContextMenu>
+          <MenuItem Header="Copy transaction ID" Click="CopyTransactionId" />
+          <MenuItem Header="Edit description" Click="BeginDescriptionEdit" />
+          <Separator />
+          <MenuItem Header="Transaction details" Click="ShowDetails" />
+        </ContextMenu>
+      </DataGrid.ContextMenu>
+      <DataGrid.Columns>
+        <DataGridTemplateColumn Header="Date" Width="148" SortMemberPath="Date">
+          <DataGridTemplateColumn.CellTemplate>
+            <DataTemplate>
+              <Grid ColumnDefinitions="20,*">
+                <TextBlock HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="{Binding StatusBrush}" Text="{Binding Status}" />
+                <TextBlock Grid.Column="1" VerticalAlignment="Center" Text="{Binding DateText}" />
+              </Grid>
+            </DataTemplate>
+          </DataGridTemplateColumn.CellTemplate>
+        </DataGridTemplateColumn>
+        <DataGridTextColumn Header="Transaction ID" Width="150" Binding="{Binding TransactionId}" IsVisible="False" IsReadOnly="True" FontFamily="Menlo, Consolas, monospace" FontSize="11" />
+        <DataGridTextColumn Header="Description" Width="*" Binding="{Binding Description}" />
+        <DataGridTemplateColumn Header="Amount" Width="94" SortMemberPath="Amount">
+          <DataGridTemplateColumn.CellTemplate>
+            <DataTemplate><TextBlock HorizontalAlignment="Right" Foreground="{Binding AmountBrush}" Text="{Binding AmountText}" /></DataTemplate>
+          </DataGridTemplateColumn.CellTemplate>
+        </DataGridTemplateColumn>
+        <DataGridTemplateColumn Header="Fiat" Width="68" SortMemberPath="FiatAmount">
+          <DataGridTemplateColumn.CellTemplate>
+            <DataTemplate><TextBlock HorizontalAlignment="Right" Foreground="{Binding AmountBrush}" Text="{Binding FiatText}" /></DataTemplate>
+          </DataGridTemplateColumn.CellTemplate>
+        </DataGridTemplateColumn>
+      </DataGrid.Columns>
+    </DataGrid>
+  </Grid>
+</UserControl>

@@ -1,0 +1,188 @@
+<Application
+    x:Class="Moonlight.Gui.Demo.App"
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    RequestedThemeVariant="Light">
+  <Application.Styles>
+    <FluentTheme DensityStyle="Compact" />
+    <StyleInclude Source="avares://Avalonia.Controls.DataGrid/Themes/Fluent.xaml" />
+
+    <Style Selector="Window">
+      <Setter Property="FontSize" Value="12" />
+      <Setter Property="Foreground" Value="#31363B" />
+      <Setter Property="Background" Value="#EFF0F1" />
+    </Style>
+    <Style Selector="Menu">
+      <Setter Property="Height" Value="22" />
+      <Setter Property="Background" Value="#EFF0F1" />
+    </Style>
+    <Style Selector="MenuItem">
+      <Setter Property="MinHeight" Value="20" />
+      <Setter Property="Padding" Value="8,2" />
+      <Setter Property="FontSize" Value="12" />
+    </Style>
+
+    <Style Selector="Button">
+      <Setter Property="MinHeight" Value="25" />
+      <Setter Property="Padding" Value="10,3" />
+      <Setter Property="CornerRadius" Value="2" />
+      <Setter Property="Background" Value="#ECEDEE" />
+      <Setter Property="Foreground" Value="#31363B" />
+      <Setter Property="BorderBrush" Value="#BAB9B8" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="FontWeight" Value="Normal" />
+    </Style>
+    <Style Selector="Button:pointerover">
+      <Setter Property="Background" Value="#E6F3FA" />
+      <Setter Property="BorderBrush" Value="#33A4DF" />
+    </Style>
+    <Style Selector="Button.tool">
+      <Setter Property="Width" Value="25" />
+      <Setter Property="MinWidth" Value="25" />
+      <Setter Property="Padding" Value="0" />
+      <Setter Property="FontSize" Value="13" />
+    </Style>
+    <Style Selector="Button.status-icon">
+      <Setter Property="Width" Value="24" />
+      <Setter Property="MinWidth" Value="24" />
+      <Setter Property="Height" Value="27" />
+      <Setter Property="MinHeight" Value="27" />
+      <Setter Property="Padding" Value="0" />
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderThickness" Value="0" />
+    </Style>
+    <Style Selector="Button.status-icon PathIcon">
+      <Setter Property="Width" Value="18" />
+      <Setter Property="Height" Value="18" />
+    </Style>
+    <Style Selector="PathIcon.tab-icon">
+      <Setter Property="Width" Value="16" />
+      <Setter Property="Height" Value="16" />
+    </Style>
+    <Style Selector="Button.tab">
+      <Setter Property="MinHeight" Value="30" />
+      <Setter Property="Height" Value="30" />
+      <Setter Property="Padding" Value="9,3" />
+      <Setter Property="Margin" Value="0" />
+      <Setter Property="CornerRadius" Value="2,2,0,0" />
+      <Setter Property="Background" Value="#D9D8D7" />
+      <Setter Property="BorderBrush" Value="#BAB9B8" />
+      <Setter Property="BorderThickness" Value="1,1,0,1" />
+    </Style>
+    <Style Selector="Button.tab.last">
+      <Setter Property="BorderThickness" Value="1" />
+    </Style>
+    <Style Selector="Button.tab.active">
+      <Setter Property="Background" Value="#FCFCFC" />
+      <Setter Property="BorderThickness" Value="1,1,0,0" />
+    </Style>
+    <Style Selector="Button.tab.last.active">
+      <Setter Property="BorderThickness" Value="1,1,1,0" />
+    </Style>
+    <Style Selector="Button.subtab">
+      <Setter Property="Height" Value="28" />
+      <Setter Property="MinHeight" Value="28" />
+      <Setter Property="Padding" Value="10,3" />
+      <Setter Property="CornerRadius" Value="2,2,0,0" />
+      <Setter Property="Background" Value="#D9D8D7" />
+      <Setter Property="BorderBrush" Value="#BAB9B8" />
+      <Setter Property="BorderThickness" Value="1,1,0,1" />
+    </Style>
+    <Style Selector="Button.subtab.active">
+      <Setter Property="Background" Value="#FCFCFC" />
+      <Setter Property="BorderThickness" Value="1,1,1,0" />
+    </Style>
+
+    <Style Selector="TextBox">
+      <Setter Property="MinHeight" Value="25" />
+      <Setter Property="Padding" Value="5,2" />
+      <Setter Property="CornerRadius" Value="2" />
+      <Setter Property="Background" Value="#FCFCFC" />
+      <Setter Property="Foreground" Value="#31363B" />
+      <Setter Property="BorderBrush" Value="#BAB9B8" />
+      <Setter Property="BorderThickness" Value="1" />
+    </Style>
+    <Style Selector="TextBox:focus">
+      <Setter Property="BorderBrush" Value="#168ED0" />
+    </Style>
+    <Style Selector="ComboBox">
+      <Setter Property="MinHeight" Value="25" />
+      <Setter Property="Padding" Value="5,1" />
+      <Setter Property="CornerRadius" Value="2" />
+      <Setter Property="Background" Value="#ECEDEE" />
+      <Setter Property="BorderBrush" Value="#BAB9B8" />
+      <Setter Property="BorderThickness" Value="1" />
+    </Style>
+
+    <Style Selector="Border.table">
+      <Setter Property="Background" Value="#FCFCFC" />
+      <Setter Property="BorderBrush" Value="#BAB9B8" />
+      <Setter Property="BorderThickness" Value="1" />
+    </Style>
+    <Style Selector="Border.table-head">
+      <Setter Property="Background" Value="#E7E7E7" />
+      <Setter Property="BorderBrush" Value="#BAB9B8" />
+      <Setter Property="BorderThickness" Value="0,0,0,1" />
+    </Style>
+    <Style Selector="Border.table-row">
+      <Setter Property="Background" Value="#FCFCFC" />
+    </Style>
+    <Style Selector="Border.table-row.alt">
+      <Setter Property="Background" Value="#EFF0F1" />
+    </Style>
+    <Style Selector="Border.table-row.selected">
+      <Setter Property="Background" Value="#338FC5" />
+    </Style>
+    <Style Selector="TextBlock.head">
+      <Setter Property="VerticalAlignment" Value="Center" />
+      <Setter Property="FontSize" Value="12" />
+    </Style>
+    <Style Selector="TextBlock.cell">
+      <Setter Property="VerticalAlignment" Value="Center" />
+      <Setter Property="FontSize" Value="12" />
+    </Style>
+    <Style Selector="TextBlock.mono">
+      <Setter Property="FontFamily" Value="Menlo, Consolas, monospace" />
+      <Setter Property="FontSize" Value="11" />
+    </Style>
+    <Style Selector="TextBlock.selected-text">
+      <Setter Property="Foreground" Value="#FFFFFF" />
+    </Style>
+    <Style Selector="TextBlock.muted">
+      <Setter Property="Foreground" Value="#62676B" />
+    </Style>
+    <Style Selector="DataGrid">
+      <Setter Property="Background" Value="#FCFCFC" />
+      <Setter Property="BorderBrush" Value="#BAB9B8" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="GridLinesVisibility" Value="Vertical" />
+      <Setter Property="HorizontalGridLinesBrush" Value="#D8D8D8" />
+      <Setter Property="VerticalGridLinesBrush" Value="#D8D8D8" />
+      <Setter Property="RowBackground" Value="#FCFCFC" />
+      <Setter Property="HeadersVisibility" Value="Column" />
+      <Setter Property="CanUserResizeColumns" Value="True" />
+      <Setter Property="CanUserSortColumns" Value="True" />
+      <Setter Property="RowHeight" Value="24" />
+      <Setter Property="ColumnHeaderHeight" Value="24" />
+      <Setter Property="FontSize" Value="12" />
+    </Style>
+    <Style Selector="DataGridRow:nth-child(even)">
+      <Setter Property="Background" Value="#EFF0F1" />
+    </Style>
+    <Style Selector="DataGridColumnHeader">
+      <Setter Property="Background" Value="#EFF0F1" />
+      <Setter Property="BorderBrush" Value="#BAB9B8" />
+      <Setter Property="BorderThickness" Value="0,0,1,1" />
+      <Setter Property="Padding" Value="5,1" />
+      <Setter Property="FontWeight" Value="Normal" />
+    </Style>
+    <Style Selector="DataGridCell">
+      <Setter Property="Padding" Value="5,1" />
+      <Setter Property="BorderThickness" Value="0" />
+    </Style>
+    <Style Selector="Border.divider">
+      <Setter Property="Height" Value="1" />
+      <Setter Property="Background" Value="#BAB9B8" />
+    </Style>
+  </Application.Styles>
+</Application>

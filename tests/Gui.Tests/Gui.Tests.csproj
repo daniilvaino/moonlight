@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <AssemblyName>Moonlight.Gui.Tests</AssemblyName>
+    <RootNamespace>Moonlight.Gui.Tests</RootNamespace>
+    <OutputType>Exe</OutputType>
+    <NoWarn>$(NoWarn);CA1510</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Remove="xunit" />
+    <PackageReference Remove="xunit.runner.visualstudio" />
+    <PackageReference Include="Avalonia.Headless.XUnit" />
+    <PackageReference Include="xunit.v3" />
+    <ProjectReference Include="..\..\apps\Gui.Demo\Gui.Demo.csproj" />
+  </ItemGroup>
+
+</Project>

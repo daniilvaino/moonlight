@@ -1,0 +1,59 @@
+<UserControl
+    x:Class="Moonlight.Gui.Demo.Views.ReceiveView"
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:local="using:Moonlight.Gui.Demo"
+    x:CompileBindings="False"
+    Margin="13,11,13,11">
+  <Grid RowDefinitions="25,7,*">
+    <Grid ColumnDefinitions="*,25" ColumnSpacing="6">
+      <TextBox x:Name="SearchBox" PlaceholderText="Search..." TextChanged="SearchChanged" />
+      <Button Grid.Column="1" Classes="tool" Content="☷" ToolTip.Tip="Address filters">
+        <Button.Flyout>
+          <MenuFlyout>
+            <MenuItem Header="Show used addresses" ToggleType="CheckBox" IsChecked="True" Click="FilterChanged" />
+            <MenuItem Header="Show hidden addresses" ToggleType="CheckBox" />
+            <MenuItem Header="Show full addresses" ToggleType="CheckBox" />
+            <MenuItem Header="Show change addresses" ToggleType="CheckBox" />
+          </MenuFlyout>
+        </Button.Flyout>
+      </Button>
+    </Grid>
+    <Grid Grid.Row="2" ColumnDefinitions="*,119" ColumnSpacing="6">
+      <DataGrid x:Name="Table"
+                AutoGenerateColumns="False"
+                IsReadOnly="False"
+                SelectionChanged="SelectionChanged">
+        <DataGrid.ContextMenu>
+          <ContextMenu>
+            <MenuItem Header="Copy address" Click="CopyAddress" />
+            <MenuItem Header="Copy label" Click="CopyLabel" />
+            <MenuItem Header="Edit label" Click="EditLabel" />
+            <Separator />
+            <MenuItem Header="Show transactions" Click="ShowTransactions" />
+            <MenuItem Header="Pin / unpin" Click="TogglePin" />
+            <MenuItem Header="Hide address" Click="HideAddress" />
+          </ContextMenu>
+        </DataGrid.ContextMenu>
+        <DataGrid.Columns>
+          <DataGridTextColumn Header="#" Width="58" Binding="{Binding IndexText}" IsReadOnly="True" SortMemberPath="Index" />
+          <DataGridTemplateColumn Header="Address" Width="310" SortMemberPath="Address">
+            <DataGridTemplateColumn.CellTemplate>
+              <DataTemplate>
+                <Border Margin="-5,-1" Padding="5,1" Background="{Binding AddressBackground}">
+                  <TextBlock FontFamily="Menlo, Consolas, monospace" FontSize="11" Text="{Binding Address}" TextTrimming="CharacterEllipsis" />
+                </Border>
+              </DataTemplate>
+            </DataGridTemplateColumn.CellTemplate>
+          </DataGridTemplateColumn>
+          <DataGridTextColumn Header="Label" Width="*" Binding="{Binding Label}" />
+        </DataGrid.Columns>
+      </DataGrid>
+      <Grid Grid.Column="1" RowDefinitions="112,34,*,27">
+        <local:QrCodeView x:Name="QrCode" Width="112" Height="112" HorizontalAlignment="Center" />
+        <Button Grid.Row="1" HorizontalAlignment="Stretch" Click="PaymentRequest">Payment Request</Button>
+        <Button Grid.Row="3" HorizontalAlignment="Stretch" Click="NewAddress">Create new address</Button>
+      </Grid>
+    </Grid>
+  </Grid>
+</UserControl>

@@ -1,0 +1,61 @@
+<UserControl
+    x:Class="Moonlight.Gui.Demo.Views.CoinsView"
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    x:CompileBindings="False"
+    Margin="13,11,13,11">
+  <Grid RowDefinitions="25,7,*">
+    <Grid ColumnDefinitions="*,25" ColumnSpacing="6">
+      <TextBox x:Name="SearchBox" PlaceholderText="Search..." TextChanged="SearchChanged" />
+      <Button Grid.Column="1" Classes="tool" Content="☷" ToolTip.Tip="Coin filters">
+        <Button.Flyout>
+          <MenuFlyout>
+            <MenuItem Header="Show spent coins" ToggleType="CheckBox" IsChecked="True" />
+            <MenuItem Header="Show frozen coins" ToggleType="CheckBox" IsChecked="True" />
+            <MenuItem Header="Show full values" ToggleType="CheckBox" />
+            <Separator />
+            <MenuItem Header="Reset columns" />
+          </MenuFlyout>
+        </Button.Flyout>
+      </Button>
+    </Grid>
+    <DataGrid x:Name="Table"
+              Grid.Row="2"
+              AutoGenerateColumns="False"
+              IsReadOnly="False"
+              SelectionMode="Extended">
+      <DataGrid.ContextMenu>
+        <ContextMenu>
+          <MenuItem Header="Spend selected coins" Click="SpendCoins" />
+          <MenuItem Header="Copy">
+            <MenuItem Header="Public key" Click="CopyPublicKey" />
+            <MenuItem Header="Transaction ID" Click="CopyTransactionId" />
+            <MenuItem Header="Address" Click="CopyAddress" />
+            <MenuItem Header="Amount" Click="CopyAmount" />
+          </MenuItem>
+          <MenuItem Header="Edit label" Click="EditLabel" />
+          <Separator />
+          <MenuItem Header="Freeze / thaw" Click="FreezeCoin" />
+          <MenuItem Header="Sweep coin" Click="SweepCoin" />
+          <MenuItem Header="Details" Click="ShowDetails" />
+        </ContextMenu>
+      </DataGrid.ContextMenu>
+      <DataGrid.Columns>
+        <DataGridTemplateColumn Header="Pub Key" Width="92" SortMemberPath="PublicKey">
+          <DataGridTemplateColumn.CellTemplate><DataTemplate><Border Margin="-5,-1" Padding="5,1" Background="{Binding RowBrush}"><TextBlock Classes="mono" Text="{Binding PublicKey}" TextTrimming="CharacterEllipsis" /></Border></DataTemplate></DataGridTemplateColumn.CellTemplate>
+        </DataGridTemplateColumn>
+        <DataGridTemplateColumn Header="TxID" Width="86" SortMemberPath="TransactionId">
+          <DataGridTemplateColumn.CellTemplate><DataTemplate><Border Margin="-5,-1" Padding="5,1" Background="{Binding RowBrush}"><TextBlock Classes="mono" Text="{Binding TransactionId}" TextTrimming="CharacterEllipsis" /></Border></DataTemplate></DataGridTemplateColumn.CellTemplate>
+        </DataGridTemplateColumn>
+        <DataGridTemplateColumn Header="Address" Width="104" SortMemberPath="Address">
+          <DataGridTemplateColumn.CellTemplate><DataTemplate><Border Margin="-5,-1" Padding="5,1" Background="{Binding RowBrush}"><TextBlock Classes="mono" Text="{Binding Address}" TextTrimming="CharacterEllipsis" /></Border></DataTemplate></DataGridTemplateColumn.CellTemplate>
+        </DataGridTemplateColumn>
+        <DataGridTextColumn Header="Label" Width="*" Binding="{Binding Label}" />
+        <DataGridTextColumn Header="Height" Width="76" Binding="{Binding BlockHeight}" SortMemberPath="BlockHeight" IsReadOnly="True" />
+        <DataGridTemplateColumn Header="Amount" Width="116" SortMemberPath="Amount">
+          <DataGridTemplateColumn.CellTemplate><DataTemplate><Border Margin="-5,-1" Padding="5,1" Background="{Binding RowBrush}"><TextBlock HorizontalAlignment="Right" Text="{Binding AmountText}" /></Border></DataTemplate></DataGridTemplateColumn.CellTemplate>
+        </DataGridTemplateColumn>
+      </DataGrid.Columns>
+    </DataGrid>
+  </Grid>
+</UserControl>
