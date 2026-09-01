@@ -30,7 +30,7 @@ internal static class Program
 
     private static void Run(string[] args)
     {
-        (WalletFile opened, string password) = Load(args);
+        WalletFile opened = Load(args);
         (Account account, WalletSnapshot saved, SubaddressIndex lookahead, _) = opened;
 
         Uri daemon = new(Flag(args, "daemon")
@@ -58,9 +58,8 @@ internal static class Program
         Uri current = daemon;
 
         void Save()
-            => File.WriteAllBytes(path, Storage.Encrypt(
-                account, password, state.ScannedHeight, Storage.DefaultIterations, lookahead, state.Snapshot(),
-                current.ToString()));
+            => Storage.Save(path, Storage.Encrypt(
+                account, opened.Seal!, state.ScannedHeight, lookahead, state.Snapshot(), current.ToString()));
 
         Dashboard dashboard = new(account) { X = 0, Y = 0, Width = Dim.Fill(), Height = 11 };
         History history = new() { X = 0, Y = 11, Width = Dim.Fill(), Height = Dim.Fill() };
@@ -161,15 +160,13 @@ internal static class Program
         Application.Shutdown();
     }
 
-    private static (WalletFile Wallet, string Password) Load(string[] args)
+    private static WalletFile Load(string[] args)
     {
         string path = args[0];
 
         if (!File.Exists(path)) throw new IOException($"no wallet at {path}");
 
-        string password = Flag(args, "password") ?? Prompt();
-
-        return (Storage.Open(File.ReadAllBytes(path), password), password);
+        return Storage.Open(File.ReadAllBytes(path), Flag(args, "password") ?? Prompt());
     }
 
     private static string Prompt()

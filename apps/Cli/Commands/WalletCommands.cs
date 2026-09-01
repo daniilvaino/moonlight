@@ -13,7 +13,7 @@ internal static class WalletCommands
         Account account = Account.Create(Options.Network(args));
         // A new wallet has no history: it starts at the tip, resolved on the first
         // scan rather than now, so creating one needs no daemon.
-        Save(path, account, Options.NewPassword(args), Lookahead(args), Empty(RestoreHeight.FromTip));
+        Save(path, account, Storage.Seal(Options.NewPassword(args)), Lookahead(args), Empty(RestoreHeight.FromTip));
 
         Console.WriteLine($"address: {account.Address.Encode()}");
         Console.WriteLine("scanning from the current tip — nothing before now can be yours");
@@ -46,7 +46,7 @@ internal static class WalletCommands
                 ? RestoreHeight.Estimate(DateTimeOffset.Parse(date, System.Globalization.CultureInfo.InvariantCulture))
                 : 0;
 
-        Save(path, account, Options.NewPassword(args), Lookahead(args), Empty(height));
+        Save(path, account, Storage.Seal(Options.NewPassword(args)), Lookahead(args), Empty(height));
 
         Console.WriteLine($"address: {account.Address.Encode()}");
         Console.WriteLine($"scanning from block {height}");
@@ -123,13 +123,11 @@ internal static class WalletCommands
     public static void Save(
         string path,
         Account account,
-        string password,
+        WalletSeal seal,
         SubaddressIndex lookahead,
         WalletSnapshot snapshot,
         string? daemon = null)
-        => System.IO.File.WriteAllBytes(
-            path,
-            Storage.Encrypt(account, password, snapshot.ScannedHeight, Storage.DefaultIterations, lookahead, snapshot, daemon));
+        => Storage.Save(path, Storage.Encrypt(account, seal, snapshot.ScannedHeight, lookahead, snapshot, daemon));
 
     /// <summary>--lookahead 50,200 — how many accounts and addresses a scan watches.</summary>
     public static SubaddressIndex Lookahead(string[] args)

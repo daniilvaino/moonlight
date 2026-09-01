@@ -15,7 +15,37 @@ namespace Moonlight.Wallet;
 /// something wrong.
 /// </remarks>
 /// <summary>Everything a wallet file holds.</summary>
-public sealed record WalletFile(Account Account, WalletSnapshot Snapshot, SubaddressIndex Lookahead, string? Daemon);
+public sealed record WalletFile(Account Account, WalletSnapshot Snapshot, SubaddressIndex Lookahead, string? Daemon)
+{
+    /// <summary>The key this file was opened with, so saving it again is cheap.</summary>
+    public WalletSeal? Seal { get; init; }
+}
+
+/// <summary>
+/// A derived key, kept for as long as a wallet is open. Deriving it costs tens of
+/// milliseconds by design, and a wallet that saves while it scans would otherwise
+/// pay that over and over for no benefit.
+/// </summary>
+/// <remarks>
+/// The salt is fixed for the life of the file; the nonce is fresh on every write,
+/// which is what AES-GCM requires of a reused key. Ninety-six random bits make a
+/// repeat vanishingly unlikely, and a repeat is the one thing that would matter.
+/// </remarks>
+public sealed class WalletSeal
+{
+    internal WalletSeal(byte[] salt, byte[] key, int iterations)
+    {
+        Salt = salt;
+        Key = key;
+        Iterations = iterations;
+    }
+
+    internal byte[] Salt { get; }
+
+    internal byte[] Key { get; }
+
+    internal int Iterations { get; }
+}
 
 public static class Storage
 {
@@ -42,6 +72,40 @@ public static class Storage
     /// </summary>
     public static readonly SubaddressIndex DefaultLookahead = new(50, 200);
 
+    /// <summary>Derives the key once, for a wallet that will be saved more than once.</summary>
+    public static WalletSeal Seal(string password, int iterations = DefaultIterations)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(password);
+        ArgumentOutOfRangeException.ThrowIfLessThan(iterations, 1);
+
+        byte[] salt = RandomNumberGenerator.GetBytes(SaltLength);
+
+        return new WalletSeal(salt, DeriveKey(password, salt, iterations), iterations);
+    }
+
+    /// <summary>
+    /// Writes the file without ever leaving it half-written. WriteAllBytes truncates
+    /// first, so a process that dies mid-write takes the keys with it; this writes
+    /// beside the wallet and swaps it in, keeping the previous file as .bak.
+    /// </summary>
+    public static void Save(string path, byte[] contents)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(path);
+        ArgumentNullException.ThrowIfNull(contents);
+
+        string temporary = path + ".new";
+        System.IO.File.WriteAllBytes(temporary, contents);
+
+        if (System.IO.File.Exists(path))
+        {
+            System.IO.File.Replace(temporary, path, path + ".bak", ignoreMetadataErrors: true);
+        }
+        else
+        {
+            System.IO.File.Move(temporary, path);
+        }
+    }
+
     public static byte[] Encrypt(
         Account account,
         string password,
@@ -55,7 +119,22 @@ public static class Storage
         ArgumentException.ThrowIfNullOrEmpty(password);
         ArgumentOutOfRangeException.ThrowIfLessThan(iterations, 1);
 
-        byte[] salt = RandomNumberGenerator.GetBytes(SaltLength);
+        return Encrypt(account, Seal(password, iterations), scannedHeight, lookahead, snapshot, daemon);
+    }
+
+    public static byte[] Encrypt(
+        Account account,
+        WalletSeal seal,
+        ulong scannedHeight = 0,
+        SubaddressIndex? lookahead = null,
+        WalletSnapshot? snapshot = null,
+        string? daemon = null)
+    {
+        ArgumentNullException.ThrowIfNull(account);
+        ArgumentNullException.ThrowIfNull(seal);
+
+        byte[] salt = seal.Salt;
+        int iterations = seal.Iterations;
         byte[] nonce = RandomNumberGenerator.GetBytes(NonceLength);
 
         // The header is authenticated but not encrypted: it says how to derive the
@@ -90,7 +169,7 @@ public static class Storage
         byte[] ciphertext = new byte[plaintext.Length];
         byte[] tag = new byte[TagLength];
 
-        using (AesGcm aes = new(DeriveKey(password, salt, iterations), TagLength))
+        using (AesGcm aes = new(seal.Key, TagLength))
         {
             aes.Encrypt(nonce, plaintext, ciphertext, tag, header);
         }
@@ -148,10 +227,11 @@ public static class Storage
         ReadOnlySpan<byte> tag = file[^TagLength..];
 
         byte[] plaintext = new byte[ciphertext.Length];
+        byte[] key = DeriveKey(password, salt, iterations);
 
         try
         {
-            using AesGcm aes = new(DeriveKey(password, salt, iterations), TagLength);
+            using AesGcm aes = new(key, TagLength);
             aes.Decrypt(nonce, ciphertext, tag, plaintext, header);
         }
         catch (CryptographicException e)
@@ -196,7 +276,11 @@ public static class Storage
 
         CryptographicOperations.ZeroMemory(plaintext);
 
-        return new WalletFile(account, snapshot, lookahead, daemon);
+        // The key comes back with the file so saving it again costs nothing.
+        return new WalletFile(account, snapshot, lookahead, daemon)
+        {
+            Seal = new WalletSeal(salt.ToArray(), key, iterations),
+        };
     }
 
     private static byte[] DeriveKey(string password, ReadOnlySpan<byte> salt, int iterations)
