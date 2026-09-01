@@ -1,3 +1,4 @@
+using System.Net.Http;
 using Moonlight.Node;
 
 namespace Moonlight.Wallet;
@@ -10,16 +11,33 @@ namespace Moonlight.Wallet;
 public static class RestoreHeight
 {
     /// <summary>
-    /// "Start at the tip." A wallet created just now has no history, so scanning
-    /// from zero would read years of chain to find nothing. The height is resolved
-    /// the first time a daemon is reachable, not at creation, because creating a
-    /// wallet must work with no network at all.
+    /// Where a wallet created right now should start. Resolved at creation and never
+    /// later: a marker resolved at the first scan skips everything that arrived in
+    /// between, which is money sent to a wallet in the minutes after it was made.
     /// </summary>
-    public const ulong FromTip = ulong.MaxValue;
+    /// <remarks>
+    /// The daemon's height if it can be had, and the date estimate otherwise —
+    /// which lands early on purpose, so an offline creation costs scanning time
+    /// rather than a missed payment.
+    /// </remarks>
+    public static async Task<ulong> ForNewWalletAsync(DaemonClient? daemon, CancellationToken cancellationToken = default)
+    {
+        if (daemon is not null)
+        {
+            try
+            {
+                ulong height = await daemon.GetHeightAsync(cancellationToken).ConfigureAwait(false);
 
-    /// <summary>Where a scan should actually begin, given what the file remembers and where the chain is now.</summary>
-    public static ulong Resolve(ulong remembered, ulong chainHeight)
-        => remembered == FromTip ? (chainHeight == 0 ? 0 : chainHeight - 1) : remembered;
+                return height == 0 ? 0 : height - 1;
+            }
+            catch (Exception e) when (e is HttpRequestException or DaemonException or TaskCanceledException)
+            {
+                // No daemon: fall through to the estimate.
+            }
+        }
+
+        return Estimate(DateTimeOffset.UtcNow);
+    }
 
     /// <summary>
     /// Block 202612 and the second it was mined at — the one height/timestamp pair

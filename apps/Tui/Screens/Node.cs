@@ -54,6 +54,18 @@ internal sealed class Node : FrameView
 
     public Uri Address => new(address.Text?.ToString() ?? "http://127.0.0.1:18081/");
 
+    /// <summary>
+    /// What the background loop ran into. A sync that fails quietly looks exactly
+    /// like one that is not running, so it says so here even though nobody asked.
+    /// </summary>
+    public void Report(Exception error)
+    {
+        ArgumentNullException.ThrowIfNull(error);
+
+        status.Text = $"sync failed — {error.Message}";
+        SetNeedsDisplay();
+    }
+
     public async Task Check()
     {
         status.Text = "asking…";

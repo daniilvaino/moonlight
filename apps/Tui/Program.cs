@@ -48,11 +48,8 @@ internal static class Program
 
         Scanner scanner = new(account, lookahead);
 
-        // The marker is kept rather than flattened to zero: ChainSync resolves it
-        // against the chain, and turning it into 0 here is what made a new wallet
-        // start reading from the genesis block.
         WalletState state = new(scanner, saved.ScannedHeight);
-        if (saved.ScannedHeight != RestoreHeight.FromTip) state.Restore(saved);
+        state.Restore(saved);
 
         string path = args[0];
 
@@ -110,6 +107,7 @@ internal static class Program
                     // Written whenever it settles, so closing the window never costs a scan.
                     if (progress.CaughtUp) Save();
                 }),
+                error => Application.MainLoop.Invoke(() => node.Report(error)),
                 cancellationToken: running.Token);
         }
 

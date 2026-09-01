@@ -1,3 +1,4 @@
+using Moonlight.Node;
 using Moonlight.Wallet;
 
 namespace Moonlight.Cli.Commands;
@@ -11,12 +12,16 @@ internal static class WalletCommands
         Refuse(path);
 
         Account account = Account.Create(Options.Network(args));
+
+        // Fixed now, not at the first scan: a wallet paid in the minutes after it
+        // was made would otherwise never see that payment.
+        ulong from = StartHeight(args);
         // A new wallet has no history: it starts at the tip, resolved on the first
         // scan rather than now, so creating one needs no daemon.
-        Save(path, account, Storage.Seal(Options.NewPassword(args)), NewDocument(args, account), Empty(RestoreHeight.FromTip));
+        Save(path, account, Storage.Seal(Options.NewPassword(args)), NewDocument(args, account), Empty(from));
 
         Console.WriteLine($"address: {account.Address.Encode()}");
-        Console.WriteLine("scanning from the current tip — nothing before now can be yours");
+        Console.WriteLine($"scanning from block {from}");
         Console.WriteLine();
         Console.WriteLine("seed — write it down, it is the only way back:");
         Console.WriteLine($"  {account.Seed}");
@@ -82,12 +87,6 @@ internal static class WalletCommands
         WalletState state = new(new Scanner(account, lookahead), snapshot.ScannedHeight);
         state.Restore(snapshot);
 
-        if (snapshot.ScannedHeight == RestoreHeight.FromTip)
-        {
-            Console.WriteLine("not scanned yet — this wallet starts at the tip; run 'moonlight sync'");
-            return 0;
-        }
-
         ulong at = snapshot.ScannedHeight == 0 ? 0 : snapshot.ScannedHeight - 1;
         Balance balance = state.BalanceAt(at);
 
@@ -146,6 +145,14 @@ internal static class WalletCommands
         Storage.Save(path, updated, Storage.Encrypt(
             account, seal, snapshot.ScannedHeight, updated.Settings.Lookahead, snapshot, daemon,
             updated.SettingsFingerprint()));
+    }
+
+    /// <summary>The daemon's height if one answers, and a deliberately early guess if not.</summary>
+    private static ulong StartHeight(string[] args)
+    {
+        using DaemonClient daemon = new(Options.Daemon(args));
+
+        return RestoreHeight.ForNewWalletAsync(daemon).GetAwaiter().GetResult();
     }
 
     private static WalletDocument NewDocument(string[] args, Account account)

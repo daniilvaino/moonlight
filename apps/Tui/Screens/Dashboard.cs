@@ -48,13 +48,9 @@ internal sealed class Dashboard : FrameView
             ? $"{Format(amounts.Unlocked)} XMR"
             : $"{Format(amounts.Unlocked)} XMR   ({Format(amounts.Locked)} still locked)";
 
-        // A wallet that has never scanned carries a marker, not a height. Printing
-        // "block 18446744073709551615" would be worse than saying so.
-        progress.Text = scanned == Wallet.RestoreHeight.FromTip
-            ? "not started — this wallet begins at the tip"
-            : height == 0
-                ? $"block {scanned}"
-                : $"block {scanned} of {height - 1}   {100.0 * scanned / Math.Max(height - 1, 1):F1}%";
+        progress.Text = height == 0
+            ? $"block {scanned}"
+            : $"block {scanned} of {height - 1}   {100.0 * scanned / Math.Max(height - 1, 1):F1}%";
 
         outputs.Text = owned.ToString(CultureInfo.InvariantCulture);
         SetNeedsDisplay();

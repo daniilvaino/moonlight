@@ -62,11 +62,6 @@ public sealed class ChainSync : IDisposable
     {
         ulong chainHeight = await daemon.GetHeightAsync(cancellationToken).ConfigureAwait(false);
 
-        if (state.ScannedHeight == RestoreHeight.FromTip)
-        {
-            state.SkipTo(RestoreHeight.Resolve(RestoreHeight.FromTip, chainHeight));
-        }
-
         while (state.ScannedHeight < chainHeight)
         {
             if (!await FetchOnceAsync(cancellationToken).ConfigureAwait(false)) break;
@@ -84,6 +79,7 @@ public sealed class ChainSync : IDisposable
     /// </summary>
     public async Task RunAsync(
         Action<SyncProgress>? onProgress = null,
+        Action<Exception>? onError = null,
         TimeSpan? interval = null,
         CancellationToken cancellationToken = default)
     {
@@ -96,10 +92,17 @@ public sealed class ChainSync : IDisposable
                 SyncProgress progress = await CatchUpAsync(onProgress, cancellationToken).ConfigureAwait(false);
                 onProgress?.Invoke(progress);
             }
-            catch (Exception e) when (e is HttpRequestException or DaemonException or FormatException or TaskCanceledException)
+            catch (OperationCanceledException)
             {
-                // A daemon that goes away is the ordinary case for a wallet left
-                // open. Keep the loop; the next turn will find it or not.
+                return;
+            }
+            catch (Exception e)
+            {
+                // The loop survives — a daemon that goes away is the ordinary case
+                // for a wallet left open — but it never swallows the reason. A
+                // background loop that fails silently is indistinguishable from one
+                // that is not running, which is the worst thing it could be.
+                onError?.Invoke(e);
             }
 
             try
@@ -117,6 +120,7 @@ public sealed class ChainSync : IDisposable
     private async Task<bool> FetchOnceAsync(CancellationToken cancellationToken)
     {
         genesis ??= await GenesisAsync(cancellationToken).ConfigureAwait(false);
+        ulong before = state.ScannedHeight;
 
         BlockBatch batch = await BinEndpoints.GetBlocksAsync(
             http, state.ScannedHeight, Locator(), cancellationToken).ConfigureAwait(false);
@@ -138,7 +142,10 @@ public sealed class ChainSync : IDisposable
             height++;
         }
 
-        return height > state.ScannedHeight || batch.Blocks.Count > 0;
+        // No advance means the daemon is answering with blocks we already have, and
+        // asking again would spin. Stopping is right; the next turn of the loop asks
+        // afresh.
+        return state.ScannedHeight > before;
     }
 
     /// <summary>
@@ -150,18 +157,29 @@ public sealed class ChainSync : IDisposable
     {
         List<byte[]> ids = [.. state.RecentBlockIds];
 
-        if (genesis is not null) ids.Add(genesis);
+        if (genesis is { Length: 32 }) ids.Add(genesis);
 
         return ids;
     }
 
+    /// <summary>
+    /// The genesis id, for the locator. Asked for rather than hardcoded, since it
+    /// differs per network — but never fatal: with a start height the daemon
+    /// answers from there and ignores the locator entirely, so a wallet must not
+    /// fail to sync because one block would not parse.
+    /// </summary>
     private async Task<byte[]> GenesisAsync(CancellationToken cancellationToken)
     {
-        // Asked for rather than hardcoded: it differs per network, and the daemon
-        // is right there.
-        Block block = await daemon.GetBlockAsync(0, cancellationToken).ConfigureAwait(false);
+        try
+        {
+            Block block = await daemon.GetBlockAsync(0, cancellationToken).ConfigureAwait(false);
 
-        return BlockParser.ComputeId(block);
+            return BlockParser.ComputeId(block);
+        }
+        catch (Exception e) when (e is FormatException or DaemonException)
+        {
+            return [];
+        }
     }
 
     public void Dispose()

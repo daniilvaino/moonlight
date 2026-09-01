@@ -54,19 +54,16 @@ public class RestoreHeightTests
     }
 
     /// <summary>
-    /// A wallet made just now cannot own anything older than now, so it starts at
-    /// the tip. The height is only known once a daemon answers, which is why the
-    /// file carries a marker rather than a number.
+    /// With no daemon a new wallet falls back to the date estimate, which lands
+    /// early on purpose. Starting late is the one direction that loses money.
     /// </summary>
     [Fact]
-    public void ANewWalletStartsAtTheTip()
+    public async Task ANewWalletWithoutADaemonStartsEarly()
     {
-        Assert.Equal(2_999_999UL, RestoreHeight.Resolve(RestoreHeight.FromTip, 3_000_000));
-        Assert.Equal(0UL, RestoreHeight.Resolve(RestoreHeight.FromTip, 0));
+        ulong height = await RestoreHeight.ForNewWalletAsync(null);
 
-        // A real height is left exactly as it is.
-        Assert.Equal(1_234UL, RestoreHeight.Resolve(1_234, 3_000_000));
-        Assert.Equal(0UL, RestoreHeight.Resolve(0, 3_000_000));
+        Assert.Equal(RestoreHeight.Estimate(DateTimeOffset.UtcNow), height);
+        Assert.True(height > 3_000_000);
     }
 
     [Fact]
