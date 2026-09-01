@@ -16,7 +16,7 @@
 
 No P/Invoke, no native binaries, no NuGet packages in the parts that hold keys — one artifact that runs wherever the runtime does, and every byte of it readable in this repository.
 
-**Status: early.** Crypto, serialization, the daemon client, RingCT and a scanning wallet are in. The CLSAG signatures and the Bulletproof+ range proof of a real transaction verify against this code, and it finds the change output of that transaction and reads its amount. What is missing is the other half of spending: decoy selection, fees and the transaction builder. Nothing here spends money yet.
+**Status: early.** Crypto, serialization, the daemon client, RingCT and a scanning wallet are in. The TUI syncs a wallet to the mainnet tip — pruned blocks, so the proofs a scan never reads are not fetched — and finds real payments to its own addresses. The CLSAG signatures and the Bulletproof+ range proof of a real transaction verify against this code, and it reads that transaction's change amount back. What is missing is the other half of spending: decoy selection, fees and the transaction builder. Nothing here spends money yet.
 
 ## The solution
 
@@ -42,6 +42,26 @@ pwsh tools/purity-gate.ps1
 
 Targets net8.0, compiled as C# 14 — so SDK 10 is required to build, though nothing newer than .NET 8 is required to run. Everything is AOT-compatible with the trim and AOT analyzers on; `PublishAot` is set only on the two apps, so the ordinary build stays ordinary.
 
+### With Nix
+
+`flake.nix` builds the same two NativeAOT binaries hermetically — pinned SDKs, pinned NuGet, no network during the build.
+
+```sh
+nix build .#moonlight          # apps/Cli  -> result/bin/moonlight
+nix build .#moonlight-tui      # apps/Tui  -> result/bin/moonlight-tui
+nix run   .# -- version
+nix flake check                # both apps, the test corpus, the purity gate
+nix develop                    # SDK 10 + SDK 8 + pwsh, then build by hand
+```
+
+The dev shell carries no C toolchain on macOS: ILC calls `clang`, `dsymutil` and `strip` by name, and Nixpkgs' `strip` rejects the flags it passes, so Xcode's command line tools stay in front. The packages build hermetically on all three platforms regardless.
+
+NuGet is locked in `nix/deps/*.json`. Only `tests/` pulls packages — the two apps resolve nothing but the ILCompiler. After changing a `PackageReference`, regenerate the matching lock (`.#moonlight-tui` for `tui.json`, `.#checks.<system>.tests` for `tests.json`):
+
+```sh
+$(nix build --no-link --print-out-paths .#moonlight.passthru.fetch-deps) "$PWD/nix/deps/cli.json"
+```
+
 ## Layout
 
 ```
@@ -52,8 +72,8 @@ src/                 sterile: 0 packages, 0 P/Invoke
   Serialization      transaction and block parsers, ids, Merkle root, Epee
   RingCT             Pedersen, ECDH, CLSAG, Bulletproofs+, MultiExp
   Node               monerod JSON-RPC; /getblocks.bin over Epee
-  Wallet             keys, accounts, addresses, scanner, decoys, fees,
-                     tx builder, encrypted storage
+  Wallet             keys, accounts, addresses, subaddresses, scanner,
+                     chain sync, restore heights, encrypted storage
 apps/
   Cli                sterile
   Tui                sterile; vendored Terminal.Gui v1
@@ -79,6 +99,12 @@ Enforced twice, because a rule nothing checks is a preference:
 
 ## TUI
 
+<p align="center">
+  <img src="media/tui-dashboard.png" width="720" alt="the moonlight dashboard: address, balance, scan progress caught up at block 3753117, and one output">
+</p>
+
+Caught up to the mainnet tip, with a payment found — every byte of that scan done by the code in this repository.
+
 `apps/Tui` vendors Terminal.Gui v1 from the SharpOS fork — the curated compile-in module, which has no ConsoleDrivers and therefore no P/Invoke, and replaces NStack with its own `Rune`. The wallet is meant to run on SharpOS eventually, so the kernel driver stays in the tree; `MoonlightHost` picks the input side.
 
 |            | console (default)                           | sharpos                            |
@@ -90,7 +116,7 @@ Rendering is shared: the driver writes ANSI through `Console.Write` on both.
 
 ## Tests
 
-Vectors before code. The harness for `tests/crypto/tests.txt` was the first thing committed, so every crypto file since is born under the whole corpus.
+Vectors before code. The harness for monero's `tests/crypto/tests.txt` — kept here as [`tests/vectors/tests.txt`](tests/vectors/tests.txt) — was the first thing committed, so every crypto file since is born under the whole corpus.
 
 |             |                                                                          |
 |-------------|--------------------------------------------------------------------------|

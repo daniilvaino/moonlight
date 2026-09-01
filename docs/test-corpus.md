@@ -6,7 +6,7 @@ What we have, where it came from, and what it can prove. Vectors before code.
 
 | file | source | licence | contents |
 |---|---|---|---|
-| `tests.txt` | monero `tests/crypto/` | BSD-3 | 5945 lines, 20 operations, 8.7 MB |
+| `tests.txt` | monero `tests/crypto/` | BSD-3 | 5945 lines, 20 operations, 8.3 MB |
 | `clsag/clsag_tx.json` | monero-oxide | MIT | one real transaction with two CLSAG signatures, its Bulletproof+ fields and pseudo-outs |
 | `clsag/ring_data.json` | monero-oxide | MIT | the two rings that transaction was signed against, 16 members each |
 | `blocks/transactions.json` | monero-oxide | MIT | 5 real transactions with ids — 4 v2, 1 v1 |
@@ -80,8 +80,8 @@ in code. The plan is to run them and capture the intermediate values.
 | `Crypto.Tests` | harness + grammar over all 5945 lines; Keccak; VarInt; 5539 replayed vectors, generators included; round-trip and typed-API tests on top (61) |
 | `Serialization.Tests` | corpus integrity; TxParser, TxHash and TxExtra against 5 real transactions; MerkleTree and BlockParser against block 202612; Epee against monero's own byte vectors (42) |
 | `RingCT.Tests` | Pedersen, ECDH, CLSAG sign/verify, two real monero-made CLSAG signatures verified against their rings, the real Bulletproof+ range proof from the same transaction, and our own prover checked against that verifier (61) |
-| `Wallet.Tests` | Base58, addresses, mnemonic, key derivation, subaddresses and restore height — anchored on the seed monero's own functional tests restore; plus the scanner finding the change output of a real mainnet transaction, and balance, locking and spend detection (71) |
-| `Integration` | DaemonClient and getblocks.bin against canned monerod answers, no network (11); plus chain tests that run only when `MOONLIGHT_DAEMON` names a node (2) |
+| `Wallet.Tests` | Base58, addresses, mnemonic, key derivation, subaddresses and restore height — anchored on the seed monero's own functional tests restore; plus the scanner finding the change output of a real mainnet transaction, and balance, locking and spend detection; the same output found again in a pruned transaction; the pending restore date and the rules for resolving it (108) |
+| `Integration` | DaemonClient and getblocks.bin against canned monerod answers, both the full and the pruned response shape, no network (14); plus chain tests that run only when `MOONLIGHT_DAEMON` names a node (3) |
 
 The corpus tests assert the vector files themselves are intact. That is not busywork: a
 truncated or reformatted vector file is the one failure mode that makes every later test

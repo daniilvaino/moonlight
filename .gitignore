@@ -62,6 +62,11 @@ nunit-*.xml
 !/work/Directory.Build.props
 !/work/Directory.Packages.props
 
+# Nix
+result
+result-*
+.direnv/
+
 # IDE
 .vs/
 .idea/

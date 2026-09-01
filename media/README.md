@@ -25,6 +25,7 @@ orange marks everything outside the purity gate (`apps/Gui.Demo`, `tests/`).
   The two large entries matter: without them Explorer and the taskbar upscale the
   64px one and the mark looks soft.
 - `favicon-{16,32,48,64,128,256}.png` — raster renditions
+- `tui-dashboard.png` — the TUI caught up to the mainnet tip (README, TUI section)
 
 The white letter sits on the colored field, so both icons work unchanged
 on light and dark backgrounds; no `prefers-color-scheme` swap needed.

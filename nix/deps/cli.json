@@ -1,0 +1,12 @@
+[
+  {
+    "pname": "runtime.linux-arm64.Microsoft.DotNet.ILCompiler",
+    "version": "8.0.30",
+    "hash": "sha256-McEPmPr/GbQbRjzOpDwS1oz+G5ezZ6blRbLlsiUMlaA="
+  },
+  {
+    "pname": "runtime.linux-x64.Microsoft.DotNet.ILCompiler",
+    "version": "8.0.30",
+    "hash": "sha256-S+SguYQoQA9im8j5gWkavtsrQyjwf//Z7dSZiotps+U="
+  }
+]
