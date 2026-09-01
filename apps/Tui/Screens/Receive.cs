@@ -33,15 +33,10 @@ internal sealed class Receive : FrameView
         show.Clicked += Refresh;
 
         text = new TextField("") { X = 2, Y = 3, Width = Dim.Fill(2), ReadOnly = true };
-        // Its own scheme, not the frame's: dark modules on a light field.
-        code = new Label("")
-        {
-            X = 2,
-            Y = 5,
-            Width = Dim.Fill(2),
-            Height = Dim.Fill(1),
-            ColorScheme = Theme.Qr,
-        };
+        // Its own scheme, not the frame's: dark modules on a light field. Sized to
+        // the code once it is rendered — a white panel filling the frame would be a
+        // large light rectangle with a small code lost inside it.
+        code = new Label("") { X = 2, Y = 5, ColorScheme = Theme.Qr };
 
         Add(major, minor, show, text, code);
         Refresh();
