@@ -48,9 +48,16 @@ internal sealed class Dashboard : FrameView
             ? $"{Format(amounts.Unlocked)} XMR"
             : $"{Format(amounts.Unlocked)} XMR   ({Format(amounts.Locked)} still locked)";
 
-        progress.Text = height == 0
-            ? $"block {scanned}"
-            : $"block {scanned} of {height - 1}   {100.0 * scanned / Math.Max(height - 1, 1):F1}%";
+        // ScannedHeight is the next block to read, so the last one read is one
+        // below it. Printing the raw number gave "block 120 of 119, 100.8%".
+        ulong last = scanned == 0 ? 0 : scanned - 1;
+        ulong tip = height == 0 ? 0 : height - 1;
+
+        progress.Text = tip == 0
+            ? $"block {last}"
+            : last >= tip
+                ? $"block {last} — up to date"
+                : $"block {last} of {tip}   {100.0 * last / tip:F1}%";
 
         outputs.Text = owned.ToString(CultureInfo.InvariantCulture);
         SetNeedsDisplay();

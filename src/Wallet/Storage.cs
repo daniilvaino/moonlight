@@ -27,6 +27,15 @@ public sealed record WalletFile(Account Account, WalletSnapshot Snapshot, Subadd
     public byte[] Fingerprint { get; init; } = [];
 
     /// <summary>
+    /// The date this wallet was restored from, kept only while the starting height
+    /// is still a guess. A wallet restored with no daemon to hand starts from an
+    /// offline estimate that deliberately lands weeks early; holding on to the date
+    /// lets the first daemon it meets replace that guess with the exact block.
+    /// Cleared once that happens, so it is asked at most once.
+    /// </summary>
+    public DateTimeOffset? PendingRestoreDate { get; init; }
+
+    /// <summary>
     /// True when the settings on disk are not the ones this wallet last wrote.
     /// Editing them by hand is allowed and expected; being redirected to another
     /// node without noticing is not, so the wallet is told rather than stopped.
@@ -151,7 +160,8 @@ public static class Storage
         SubaddressIndex? lookahead = null,
         WalletSnapshot? snapshot = null,
         string? daemon = null,
-        ReadOnlySpan<byte> settingsFingerprint = default)
+        ReadOnlySpan<byte> settingsFingerprint = default,
+        DateTimeOffset? pendingRestoreDate = null)
     {
         ArgumentNullException.ThrowIfNull(account);
         ArgumentNullException.ThrowIfNull(seal);
@@ -187,6 +197,13 @@ public static class Storage
         WriteSection(body, SectionDaemon, System.Text.Encoding.UTF8.GetBytes(daemon ?? ""));
         WriteSection(body, SectionSettingsFingerprint, settingsFingerprint);
 
+        if (pendingRestoreDate is DateTimeOffset pending)
+        {
+            byte[] seconds = new byte[8];
+            BinaryPrimitives.WriteInt64LittleEndian(seconds, pending.ToUnixTimeSeconds());
+            WriteSection(body, SectionRestoreDate, seconds);
+        }
+
         byte[] plaintext = [.. body];
 
         byte[] ciphertext = new byte[plaintext.Length];
@@ -215,6 +232,9 @@ public static class Storage
     private const byte SectionDaemon = 1;
 
     private const byte SectionSettingsFingerprint = 2;
+
+    /// <summary>The date a still-unresolved restore was asked for, in unix seconds.</summary>
+    private const byte SectionRestoreDate = 3;
 
     private static void WriteSection(List<byte> body, byte tag, ReadOnlySpan<byte> payload)
     {
@@ -318,6 +338,7 @@ public static class Storage
         WalletSnapshot snapshot = new(scannedHeight, [], new Dictionary<string, ulong>());
         string? daemon = null;
         byte[] fingerprint = [];
+        DateTimeOffset? pendingRestoreDate = null;
 
         if (plaintext.Length > BodyLength)
         {
@@ -340,6 +361,11 @@ public static class Storage
                         fingerprint = payload.ToArray();
                         break;
 
+                    case SectionRestoreDate when length == 8:
+                        pendingRestoreDate = DateTimeOffset.FromUnixTimeSeconds(
+                            BinaryPrimitives.ReadInt64LittleEndian(payload));
+                        break;
+
                     // Anything else was written by a later version. Skipping it is
                     // the point of the length being there.
                 }
@@ -353,6 +379,7 @@ public static class Storage
         {
             Seal = new WalletSeal(salt.ToArray(), key, iterations),
             Fingerprint = fingerprint,
+            PendingRestoreDate = pendingRestoreDate,
         };
     }
 

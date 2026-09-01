@@ -53,6 +53,35 @@ public class ScannerTests
     }
 
     /// <summary>
+    /// The same transaction as a pruning daemon sends it, with the proofs cut away.
+    /// This is what the wallet now asks for, so it has to find the same money — the
+    /// amount proved the same way, by rebuilding the commitment. The id cannot be
+    /// recomputed from a pruned blob and comes from the block instead, which is why
+    /// it is passed in.
+    /// </summary>
+    [Fact]
+    public void FindsTheSameOutputInAPrunedTransaction()
+    {
+        Transaction full = ClsagTransaction();
+        Transaction pruned = TxParser.Parse(full.Blob.AsSpan(0, full.UnprunableLength));
+
+        byte[] id = TxHash.Compute(full);
+
+        OwnedOutput output = Assert.Single(new Scanner(Wallet, Small).Scan(pruned, height: 0, id));
+
+        Assert.Equal(60_363_387_616_637UL, output.Amount);
+        Assert.Equal(new SubaddressIndex(0, 0), output.Subaddress);
+        Assert.Equal(id, output.TransactionId);
+
+        Assert.Equal(
+            Point.FromBytes(pruned.Rct!.OutPk[output.OutputIndex]),
+            Pedersen.Commit(output.Amount, output.Mask));
+
+        // Same output, reached without the four fifths of the blob we no longer ask for.
+        Assert.True(pruned.Blob.Length * 5 < full.Blob.Length * 2);
+    }
+
+    /// <summary>
     /// The other output of that transaction went to somebody else, and the view tag
     /// rejected it before any curve arithmetic. That ratio is the whole reason
     /// scanning is affordable.

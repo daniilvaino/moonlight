@@ -16,8 +16,7 @@ internal static class WalletCommands
         // Fixed now, not at the first scan: a wallet paid in the minutes after it
         // was made would otherwise never see that payment.
         ulong from = StartHeight(args);
-        // A new wallet has no history: it starts at the tip, resolved on the first
-        // scan rather than now, so creating one needs no daemon.
+
         Save(path, account, Storage.Seal(Options.NewPassword(args)), NewDocument(args, account), Empty(from));
 
         Console.WriteLine($"address: {account.Address.Encode()}");
@@ -43,18 +42,19 @@ internal static class WalletCommands
 
         Account account = Account.FromMnemonic(string.Join(' ', positional[1..]), Options.Network(args));
 
-        // A restored wallet starts at its restore height if one is given, and
-        // otherwise at zero — slow, but never silently missing a payment.
-        ulong height = Options.Optional(args, "restore-height") is string given
-            ? ulong.Parse(given, System.Globalization.CultureInfo.InvariantCulture)
-            : Options.Optional(args, "restore-date") is string date
-                ? RestoreHeight.Estimate(DateTimeOffset.Parse(date, System.Globalization.CultureInfo.InvariantCulture))
-                : 0;
+        (ulong height, DateTimeOffset? pending) = RestoreStart(args);
 
-        Save(path, account, Storage.Seal(Options.NewPassword(args)), NewDocument(args, account), Empty(height));
+        Save(path, account, Storage.Seal(Options.NewPassword(args)), NewDocument(args, account),
+            Empty(height), pendingRestoreDate: pending);
 
         Console.WriteLine($"address: {account.Address.Encode()}");
         Console.WriteLine($"scanning from block {height}");
+
+        if (pending is not null)
+        {
+            Console.WriteLine("no daemon answered, so that is an estimate — it will be replaced");
+            Console.WriteLine("with the exact block on the first scan that reaches one");
+        }
 
         return 0;
     }
@@ -134,7 +134,8 @@ internal static class WalletCommands
         WalletSeal seal,
         WalletDocument document,
         WalletSnapshot snapshot,
-        string? daemon = null)
+        string? daemon = null,
+        DateTimeOffset? pendingRestoreDate = null)
     {
         WalletDocument updated = document with
         {
@@ -144,7 +145,37 @@ internal static class WalletCommands
 
         Storage.Save(path, updated, Storage.Encrypt(
             account, seal, snapshot.ScannedHeight, updated.Settings.Lookahead, snapshot, daemon,
-            updated.SettingsFingerprint()));
+            updated.SettingsFingerprint(), pendingRestoreDate));
+    }
+
+    /// <summary>
+    /// Where a restore starts. An explicit height is taken as given. A date is put
+    /// to the daemon, which answers with the exact block; with no daemon to ask,
+    /// the offline estimate stands in and the date is kept so that the first daemon
+    /// this wallet meets can replace the guess before any scanning is done.
+    /// </summary>
+    private static (ulong Height, DateTimeOffset? Pending) RestoreStart(string[] args)
+    {
+        if (Options.Optional(args, "restore-height") is string given)
+        {
+            return (ulong.Parse(given, System.Globalization.CultureInfo.InvariantCulture), null);
+        }
+
+        // No height and no date: from the beginning. Slow, and never wrong.
+        if (Options.Optional(args, "restore-date") is not string text) return (0, null);
+
+        DateTimeOffset date = DateTimeOffset.Parse(text, System.Globalization.CultureInfo.InvariantCulture);
+
+        using DaemonClient daemon = new(Options.Daemon(args));
+
+        try
+        {
+            return (RestoreHeight.ForDateAsync(daemon, date).GetAwaiter().GetResult(), null);
+        }
+        catch (Exception e) when (e is System.Net.Http.HttpRequestException or DaemonException or TaskCanceledException)
+        {
+            return (RestoreHeight.Estimate(date), date);
+        }
     }
 
     /// <summary>The daemon's height if one answers, and a deliberately early guess if not.</summary>

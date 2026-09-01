@@ -42,7 +42,9 @@ public class BinEndpointsTests
         Assert.Equal(locator[1], ids.Value[32..64]);
 
         Assert.Equal(3_738_588UL, Assert.IsType<EpeeValue.Number>(request["start_height"]).Value);
-        Assert.False(Assert.IsType<EpeeValue.Flag>(request["prune"]).Value);
+        // Pruned, because a scan reads outputs and never the proofs that make up
+        // most of a block's weight.
+        Assert.True(Assert.IsType<EpeeValue.Flag>(request["prune"]).Value);
     }
 
     private sealed class RecordingHandler : HttpMessageHandler
@@ -141,6 +143,72 @@ public class BinEndpointsTests
 
         Assert.Contains("Failed", error.Message, StringComparison.Ordinal);
     }
+
+    /// <summary>
+    /// A pruned response wraps each transaction in a section beside the hash of what
+    /// was dropped, rather than sending the blob directly. Reading only the direct
+    /// form left every transaction on the floor without a word — a wallet that sees
+    /// coinbase and nothing else.
+    /// </summary>
+    [Fact]
+    public void ReadsPrunedTransactions()
+    {
+        (byte[] blockBlob, byte[][] txs) = SampleBlock();
+
+        byte[] response = PortableWriter.Section(root =>
+        {
+            root.Bytes("status", "OK"u8);
+            root.Sections("blocks", [entry =>
+            {
+                entry.Bytes("block", blockBlob);
+                entry.Sections("txs", [.. txs.Select<byte[], Action<PortableWriter>>(tx => w =>
+                {
+                    w.Bytes("blob", Prune(tx));
+                    w.Bytes("prunable_hash", new byte[32]);
+                })]);
+            }]);
+        });
+
+        BlockBundle bundle = Assert.Single(BinEndpoints.ParseBlocks(response));
+
+        Assert.Equal(txs.Length, bundle.Transactions.Count);
+        Assert.All(bundle.Transactions, tx => Assert.True(tx.Outputs.Length > 0));
+
+        // What the scan actually needs survives pruning: for a RingCT transaction
+        // that is the base, holding the encoded amounts beside the output keys.
+        // Version 1 predates it and carries none, which is not a loss.
+        Assert.All(bundle.Transactions.Where(tx => tx.Version > 1), tx =>
+        {
+            Assert.NotNull(tx.Rct);
+            Assert.Equal(tx.Outputs.Length, tx.Rct!.EcdhInfo.Length);
+            Assert.Empty(tx.Prunable.ToArray());
+        });
+    }
+
+    /// <summary>
+    /// Neither known form. Refusing is the point: silently dropping it would cost a
+    /// payment and say nothing, which is the one failure a wallet must not have.
+    /// </summary>
+    [Fact]
+    public void ATransactionInAnUnknownFormIsRefused()
+    {
+        (byte[] blockBlob, _) = SampleBlock();
+
+        byte[] response = PortableWriter.Section(root =>
+        {
+            root.Bytes("status", "OK"u8);
+            root.Sections("blocks", [entry =>
+            {
+                entry.Bytes("block", blockBlob);
+                entry.Sections("txs", [w => w.Number("surprise", 1)]);
+            }]);
+        });
+
+        Assert.Throws<DaemonException>(() => BinEndpoints.ParseBlocks(response));
+    }
+
+    /// <summary>Cuts a blob where a pruning daemon cuts it: everything after the RingCT base goes.</summary>
+    private static byte[] Prune(byte[] blob) => blob[..TxParser.Parse(blob).UnprunableLength];
 
     /// <summary>Builds the envelope monerod sends: a status, and blocks each carrying their transactions.</summary>
     private static byte[] BuildResponse(string status, byte[] block, byte[][] transactions)

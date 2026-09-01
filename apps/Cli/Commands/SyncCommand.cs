@@ -13,7 +13,12 @@ internal static class SyncCommand
         WalletState state = new(new Scanner(account, lookahead), saved.ScannedHeight);
         state.Restore(saved);
 
-        using ChainSync sync = new(Options.Daemon(args, wallet.Daemon), state);
+        using ChainSync sync = new(Options.Daemon(args, wallet.Daemon), state)
+        {
+            // A restore date this wallet could not resolve offline. The first
+            // catch-up asks the daemon and clears it.
+            PendingRestoreDate = wallet.PendingRestoreDate,
+        };
 
         DateTimeOffset started = DateTimeOffset.UtcNow;
         ulong from = state.ScannedHeight;
@@ -38,7 +43,8 @@ internal static class SyncCommand
 
         // Everything the scan found goes back into the file, so the next run starts
         // where this one stopped rather than reading the chain again.
-        WalletCommands.Save(Options.File(args), account, wallet.Seal!, wallet.Document, state.Snapshot(), Options.Daemon(args, wallet.Daemon).ToString());
+        WalletCommands.Save(Options.File(args), account, wallet.Seal!, wallet.Document, state.Snapshot(),
+            Options.Daemon(args, wallet.Daemon).ToString(), sync.PendingRestoreDate);
 
         return 0;
     }

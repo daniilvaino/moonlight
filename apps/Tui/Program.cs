@@ -55,6 +55,14 @@ internal static class Program
 
         Uri current = daemon;
 
+        // Kept warm while the wallet is open: the loop catches up, then looks again
+        // every ten seconds — the shape wallet2's api uses, which is what Feather is
+        // built on. Scan now only nudges it awake.
+        using CancellationTokenSource stopping = new();
+
+        ChainSync sync = new(current, state) { PendingRestoreDate = opened.PendingRestoreDate };
+        CancellationTokenSource running = CancellationTokenSource.CreateLinkedTokenSource(stopping.Token);
+
         void Save()
         {
             WalletDocument document = opened.Document with
@@ -65,7 +73,7 @@ internal static class Program
 
             Storage.Save(path, document, Storage.Encrypt(
                 account, opened.Seal!, state.ScannedHeight, lookahead, state.Snapshot(), current.ToString(),
-                document.SettingsFingerprint()));
+                document.SettingsFingerprint(), sync.PendingRestoreDate));
         }
 
         Dashboard dashboard = new(account) { X = 0, Y = 0, Width = Dim.Fill(), Height = 11 };
@@ -87,14 +95,6 @@ internal static class Program
             top.Add(screen);
             top.SetNeedsDisplay();
         }
-
-        // Kept warm while the wallet is open: the loop catches up, then looks again
-        // every ten seconds — the shape wallet2's api uses, which is what Feather is
-        // built on. Scan now only nudges it awake.
-        using CancellationTokenSource stopping = new();
-
-        ChainSync sync = new(current, state);
-        CancellationTokenSource running = CancellationTokenSource.CreateLinkedTokenSource(stopping.Token);
 
         void StartSync()
         {
@@ -119,7 +119,9 @@ internal static class Program
             sync.Dispose();
 
             current = chosen;
-            sync = new ChainSync(current, state);
+            // The unresolved restore date travels to the new loop: changing node
+            // is not an answer to it.
+            sync = new ChainSync(current, state) { PendingRestoreDate = sync.PendingRestoreDate };
             running = CancellationTokenSource.CreateLinkedTokenSource(stopping.Token);
 
             Save();

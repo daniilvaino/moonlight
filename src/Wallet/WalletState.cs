@@ -89,7 +89,16 @@ public sealed class WalletState
         ScannedHeight = height;
     }
 
-    public void Process(ulong height, IReadOnlyList<Transaction> transactions, byte[]? blockId = null)
+    /// <param name="transactionIds">
+    /// The ids the block itself lists, in the same order. A pruned transaction has
+    /// no prunable part left to hash, so its id cannot be recomputed from the blob —
+    /// but the block already carries it, and the Merkle root already vouched for it.
+    /// </param>
+    public void Process(
+        ulong height,
+        IReadOnlyList<Transaction> transactions,
+        byte[]? blockId = null,
+        IReadOnlyList<byte[]>? transactionIds = null)
     {
         ArgumentNullException.ThrowIfNull(transactions);
 
@@ -98,11 +107,19 @@ public sealed class WalletState
             throw new ArgumentOutOfRangeException(nameof(height), $"block {height} arrived after {ScannedHeight}");
         }
 
-        foreach (Transaction transaction in transactions)
+        if (transactionIds is not null && transactionIds.Count != transactions.Count)
         {
+            throw new ArgumentException(
+                $"block {height} listed {transactionIds.Count} transaction ids for {transactions.Count} transactions",
+                nameof(transactionIds));
+        }
+
+        for (int i = 0; i < transactions.Count; i++)
+        {
+            Transaction transaction = transactions[i];
             RecordSpends(transaction, height);
 
-            foreach (OwnedOutput output in scanner.Scan(transaction, height))
+            foreach (OwnedOutput output in scanner.Scan(transaction, height, transactionIds?[i]))
             {
                 outputs[output.Key.ToString()] = output;
             }

@@ -56,7 +56,14 @@ namespace Terminal.Gui
             if (!wait) return false;
 
             Thread.Sleep(10);
-            return _hasPending || ReadKey();
+
+            // Re-checked after sleeping: work posted from another thread while we
+            // were asleep is ready now, and only looking for keys would leave it
+            // sitting until the next turn.
+            return _hasPending
+                || ReadKey()
+                || _mainLoop.Timeouts.Count > 0
+                || _mainLoop.IdleHandlers.Count > 0;
         }
 
         void IMainLoopDriver.MainIteration()

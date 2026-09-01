@@ -46,6 +46,14 @@ public sealed class ChainSync : IDisposable
         this.state = state;
     }
 
+    /// <summary>
+    /// A restore date whose exact block is still unknown, from a wallet restored
+    /// with no daemon to hand. The first catch-up puts it to the daemon and clears
+    /// it; whoever saves the wallet writes back whatever is here, so the question
+    /// is asked once rather than on every open.
+    /// </summary>
+    public DateTimeOffset? PendingRestoreDate { get; set; }
+
     /// <summary>Ask the loop to look now rather than at the end of its interval.</summary>
     public void RefreshNow()
     {
@@ -62,9 +70,22 @@ public sealed class ChainSync : IDisposable
     {
         ulong chainHeight = await daemon.GetHeightAsync(cancellationToken).ConfigureAwait(false);
 
+        // Before anything is read: a wallet restored offline started weeks early on
+        // purpose, and this is the moment that guess can be replaced by the block
+        // the date actually names. RefineAsync refuses once there is money to lose.
+        if (PendingRestoreDate is DateTimeOffset pending)
+        {
+            await RestoreHeight.RefineAsync(daemon, pending, state, cancellationToken).ConfigureAwait(false);
+            PendingRestoreDate = null;
+        }
+
+        // Before the first batch, so the screen shows where it is going rather than
+        // staying blank until a batch comes back.
+        onProgress?.Invoke(new SyncProgress(state.ScannedHeight, chainHeight, state.Outputs.Count()));
+
         while (state.ScannedHeight < chainHeight)
         {
-            if (!await FetchOnceAsync(cancellationToken).ConfigureAwait(false)) break;
+            if (!await FetchOnceAsync(chainHeight, onProgress, cancellationToken).ConfigureAwait(false)) break;
 
             onProgress?.Invoke(new SyncProgress(state.ScannedHeight, chainHeight, state.Outputs.Count()));
         }
@@ -116,8 +137,16 @@ public sealed class ChainSync : IDisposable
         }
     }
 
+    /// <summary>
+    /// How often a batch reports its own progress. Near the tip a batch is megabytes
+    /// of full blocks and takes long enough that a counter moving only between
+    /// batches looks stopped.
+    /// </summary>
+    private static readonly TimeSpan ProgressInterval = TimeSpan.FromMilliseconds(250);
+
     /// <summary>One batch. Returns false when the daemon has nothing further to give.</summary>
-    private async Task<bool> FetchOnceAsync(CancellationToken cancellationToken)
+    private async Task<bool> FetchOnceAsync(
+        ulong chainHeight, Action<SyncProgress>? onProgress, CancellationToken cancellationToken)
     {
         genesis ??= await GenesisAsync(cancellationToken).ConfigureAwait(false);
         ulong before = state.ScannedHeight;
@@ -128,6 +157,7 @@ public sealed class ChainSync : IDisposable
         if (batch.Blocks.Count == 0) return false;
 
         ulong height = batch.StartHeight;
+        long next = Environment.TickCount64 + (long)ProgressInterval.TotalMilliseconds;
 
         foreach (BlockBundle bundle in batch.Blocks)
         {
@@ -136,10 +166,16 @@ public sealed class ChainSync : IDisposable
             if (height >= state.ScannedHeight)
             {
                 List<Transaction> transactions = [bundle.Block.MinerTransaction, .. bundle.Transactions];
-                state.Process(height, transactions, BlockParser.ComputeId(bundle.Block));
+                state.Process(height, transactions, BlockParser.ComputeId(bundle.Block),
+                    bundle.Block.AllTransactionIds());
             }
 
             height++;
+
+            if (onProgress is null || Environment.TickCount64 < next) continue;
+
+            next = Environment.TickCount64 + (long)ProgressInterval.TotalMilliseconds;
+            onProgress(new SyncProgress(state.ScannedHeight, chainHeight, state.Outputs.Count()));
         }
 
         // No advance means the daemon is answering with blocks we already have, and
