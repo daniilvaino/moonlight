@@ -30,7 +30,7 @@ internal static class Program
 
     private static void Run(string[] args)
     {
-        (Account account, ulong restoreHeight, SubaddressIndex lookahead) = Load(args);
+        (Account account, WalletSnapshot saved, SubaddressIndex lookahead) = Load(args);
 
         Uri daemon = new(Flag(args, "daemon")
             ?? Environment.GetEnvironmentVariable("MOONLIGHT_DAEMON")
@@ -44,7 +44,8 @@ internal static class Program
         Theme.Apply();
 
         Scanner scanner = new(account, lookahead);
-        WalletState state = new(scanner, restoreHeight);
+        WalletState state = new(scanner, saved.ScannedHeight);
+        state.Restore(saved);
 
         Dashboard dashboard = new(account) { X = 0, Y = 1, Width = Dim.Fill(), Height = 11 };
         History history = new() { X = 0, Y = 12, Width = Dim.Fill(), Height = Dim.Fill(1) };
@@ -89,8 +90,8 @@ internal static class Program
             _ => main,
         });
 
-        dashboard.Update(state.Balance(), state.ScannedHeight, 0, 0);
-        history.Update([], _ => false);
+        dashboard.Update(state.Balance(), state.ScannedHeight, 0, state.Outputs.Count());
+        history.Update(state.Outputs, state.IsSpent);
 
         Application.Run();
         Application.Shutdown();
@@ -136,7 +137,7 @@ internal static class Program
         }
     }
 
-    private static (Account Account, ulong RestoreHeight, SubaddressIndex Lookahead) Load(string[] args)
+    private static (Account Account, WalletSnapshot Snapshot, SubaddressIndex Lookahead) Load(string[] args)
     {
         string path = args[0];
 
@@ -144,7 +145,7 @@ internal static class Program
 
         string password = Flag(args, "password") ?? Prompt();
 
-        return Storage.Decrypt(File.ReadAllBytes(path), password);
+        return Storage.Open(File.ReadAllBytes(path), password);
     }
 
     private static string Prompt()

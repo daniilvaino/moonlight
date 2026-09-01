@@ -5,7 +5,11 @@ using MoneroRing.Crypto;
 
 namespace Moonlight.Wallet;
 
-/// <summary>An output this wallet can spend, and everything needed to spend it.</summary>
+/// <summary>
+/// An output this wallet can spend, and everything needed to spend it — including
+/// what governs when it becomes spendable, which is a property of the transaction
+/// it arrived in and has to travel with it.
+/// </summary>
 public sealed record OwnedOutput(
     ulong Height,
     byte[] TransactionId,
@@ -14,7 +18,28 @@ public sealed record OwnedOutput(
     ulong Amount,
     Scalar Mask,
     SubaddressIndex Subaddress,
-    Point? KeyImage);
+    Point? KeyImage,
+    bool IsCoinbase = false,
+    ulong UnlockTime = 0)
+{
+    // A record compares byte[] by reference, so an output read back from a file
+    // would never equal the one written to it. Outputs do get compared — that is
+    // how a wallet notices it already knows one — so equality is spelled out.
+    public bool Equals(OwnedOutput? other)
+        => other is not null
+        && Height == other.Height
+        && OutputIndex == other.OutputIndex
+        && Amount == other.Amount
+        && IsCoinbase == other.IsCoinbase
+        && UnlockTime == other.UnlockTime
+        && Subaddress == other.Subaddress
+        && Key == other.Key
+        && Mask == other.Mask
+        && KeyImage == other.KeyImage
+        && TransactionId.AsSpan().SequenceEqual(other.TransactionId);
+
+    public override int GetHashCode() => HashCode.Combine(Height, OutputIndex, Amount, Key, Mask, Subaddress);
+}
 
 /// <summary>
 /// Finds a wallet's outputs in transactions it is shown. The whole wallet rests
@@ -126,7 +151,9 @@ public sealed class Scanner
 
         Point? keyImage = spendSecret is null ? null : KeyImage(outputKey, shared, subaddress);
 
-        output = new OwnedOutput(height, id, index, Point.FromBytes(outputKey), amount, mask, subaddress, keyImage);
+        output = new OwnedOutput(
+            height, id, index, Point.FromBytes(outputKey), amount, mask, subaddress, keyImage,
+            transaction.IsCoinbase, transaction.UnlockTime);
         return true;
     }
 

@@ -11,7 +11,7 @@ internal static class WalletCommands
         Refuse(path);
 
         Account account = Account.Create(Options.Network(args));
-        Save(path, account, Options.NewPassword(args), scannedHeight: 0, Lookahead(args));
+        Save(path, account, Options.NewPassword(args), Lookahead(args), Empty(0));
 
         Console.WriteLine($"address: {account.Address.Encode()}");
         Console.WriteLine();
@@ -43,7 +43,7 @@ internal static class WalletCommands
                 ? RestoreHeight.Estimate(DateTimeOffset.Parse(date, System.Globalization.CultureInfo.InvariantCulture))
                 : 0;
 
-        Save(path, account, Options.NewPassword(args), height, Lookahead(args));
+        Save(path, account, Options.NewPassword(args), Lookahead(args), Empty(height));
 
         Console.WriteLine($"address: {account.Address.Encode()}");
         Console.WriteLine($"scanning from block {height}");
@@ -73,17 +73,32 @@ internal static class WalletCommands
 
     public static int ShowBalance(string[] args)
     {
-        (Account _, ulong height, _) = Open(args);
+        (Account account, WalletSnapshot snapshot, SubaddressIndex lookahead) = Open(args);
 
-        // The file keeps the height but not the outputs yet, so this reports what
-        // is known rather than pretending to a balance it cannot compute.
-        Console.WriteLine($"scanned to block {height}");
-        Console.WriteLine("balance: run 'moonlight sync' — this build does not yet keep outputs between runs");
+        WalletState state = new(new Scanner(account, lookahead), snapshot.ScannedHeight);
+        state.Restore(snapshot);
+
+        ulong at = snapshot.ScannedHeight == 0 ? 0 : snapshot.ScannedHeight - 1;
+        Balance balance = state.BalanceAt(at);
+
+        Console.WriteLine($"scanned to block {at}");
+        Console.WriteLine($"balance:  {Format(balance.Total)} XMR");
+        Console.WriteLine($"unlocked: {Format(balance.Unlocked)} XMR");
+
+        foreach (OwnedOutput output in state.Unspent.OrderBy(o => o.Height))
+        {
+            Console.WriteLine($"  block {output.Height,9}  {Format(output.Amount),20} XMR  " +
+                $"({output.Subaddress.Major},{output.Subaddress.Minor})");
+        }
 
         return 0;
     }
 
-    public static (Account Account, ulong ScannedHeight, SubaddressIndex Lookahead) Open(string[] args)
+    /// <summary>Twelve decimal places, and a wallet that rounds them is lying.</summary>
+    public static string Format(ulong atomic)
+        => (atomic / 1_000_000_000_000m).ToString("0.############", System.Globalization.CultureInfo.InvariantCulture);
+
+    public static (Account Account, WalletSnapshot Snapshot, SubaddressIndex Lookahead) Open(string[] args)
     {
         string path = Options.File(args);
 
@@ -92,11 +107,18 @@ internal static class WalletCommands
             throw new IOException($"no wallet at {path}");
         }
 
-        return Storage.Decrypt(System.IO.File.ReadAllBytes(path), Options.Password(args));
+        return Storage.Open(System.IO.File.ReadAllBytes(path), Options.Password(args));
     }
 
-    public static void Save(string path, Account account, string password, ulong scannedHeight, SubaddressIndex lookahead)
-        => System.IO.File.WriteAllBytes(path, Storage.Encrypt(account, password, scannedHeight, Storage.DefaultIterations, lookahead));
+    public static void Save(
+        string path,
+        Account account,
+        string password,
+        SubaddressIndex lookahead,
+        WalletSnapshot snapshot)
+        => System.IO.File.WriteAllBytes(
+            path,
+            Storage.Encrypt(account, password, snapshot.ScannedHeight, Storage.DefaultIterations, lookahead, snapshot));
 
     /// <summary>--lookahead 50,200 — how many accounts and addresses a scan watches.</summary>
     public static SubaddressIndex Lookahead(string[] args)
@@ -110,6 +132,9 @@ internal static class WalletCommands
                                   uint.Parse(parts[1], System.Globalization.CultureInfo.InvariantCulture))
             : throw new ArgumentException("--lookahead wants accounts,addresses — for example 50,200");
     }
+
+    public static WalletSnapshot Empty(ulong scannedHeight)
+        => new(scannedHeight, [], new Dictionary<string, ulong>());
 
     private static void Refuse(string path)
     {

@@ -10,13 +10,15 @@ internal static class SyncCommand
 {
     public static async Task<int> Run(string[] args)
     {
-        (Account account, ulong from, SubaddressIndex lookahead) = WalletCommands.Open(args);
+        (Account account, WalletSnapshot saved, SubaddressIndex lookahead) = WalletCommands.Open(args);
+        ulong from = saved.ScannedHeight;
 
         using DaemonClient daemon = new(Options.Daemon(args));
         ulong height = await daemon.GetHeightAsync().ConfigureAwait(false);
 
         Scanner scanner = new(account, lookahead);
         WalletState state = new(scanner, from);
+        state.Restore(saved);
 
         Console.WriteLine($"scanning {from} to {height - 1} on {Options.Daemon(args)}");
 
@@ -54,9 +56,9 @@ internal static class SyncCommand
                 $"({output.Subaddress.Major},{output.Subaddress.Minor})");
         }
 
-        // The wallet file remembers where scanning got to; the outputs themselves
-        // are not persisted yet, so a rescan starts from the restore height.
-        WalletCommands.Save(Options.File(args), account, Options.Password(args), from, lookahead);
+        // Everything the scan found goes back into the file, so the next run starts
+        // where this one stopped rather than reading the chain again.
+        WalletCommands.Save(Options.File(args), account, Options.Password(args), lookahead, state.Snapshot());
 
         return 0;
     }
@@ -70,7 +72,5 @@ internal static class SyncCommand
             $"outputs seen {scanner.Examined}, ours {state.Outputs.Count()}   ");
     }
 
-    /// <summary>Monero has twelve decimal places, and a wallet that rounds them is lying.</summary>
-    private static string Format(ulong atomic)
-        => (atomic / 1_000_000_000_000m).ToString("0.############", CultureInfo.InvariantCulture);
+    private static string Format(ulong atomic) => WalletCommands.Format(atomic);
 }

@@ -1,3 +1,4 @@
+using Moonlight.Crypto;
 using Moonlight.Wallet;
 using Xunit;
 
@@ -135,6 +136,60 @@ public class StorageTests
 
         (_, _, SubaddressIndex fallback) = Storage.Decrypt(Storage.Encrypt(account, "p", 0, Fast), "p");
         Assert.Equal(Storage.DefaultLookahead, fallback);
+    }
+
+    /// <summary>
+    /// What a scan found survives too. Without this a wallet reads the chain from
+    /// its restore height every time it opens, which for an old wallet is hours.
+    /// </summary>
+    [Fact]
+    public void ScanResultsSurvive()
+    {
+        Account account = Account.Create();
+        Point image = Point.FromSecret(Scalar.Random());
+
+        OwnedOutput output = new(
+            Height: 3_000_000,
+            TransactionId: [.. Enumerable.Repeat((byte)0xAB, 32)],
+            OutputIndex: 2,
+            Key: Point.FromSecret(Scalar.Random()),
+            Amount: 1_234_567_890_123,
+            Mask: Scalar.Random(),
+            Subaddress: new SubaddressIndex(3, 9),
+            KeyImage: image,
+            IsCoinbase: true,
+            UnlockTime: 3_000_060);
+
+        WalletSnapshot snapshot = new(3_000_001, [output], new Dictionary<string, ulong>
+        {
+            [Convert.ToHexString(image.ToBytes()).ToLowerInvariant()] = 3_000_100,
+        });
+
+        byte[] file = Storage.Encrypt(account, "p", 0, Fast, null, snapshot);
+        (Account restored, WalletSnapshot back, _) = Storage.Open(file, "p");
+
+        Assert.Equal(account.Address, restored.Address);
+        Assert.Equal(3_000_001UL, back.ScannedHeight);
+
+        OwnedOutput single = Assert.Single(back.Outputs);
+        Assert.Equal(output, single);
+        Assert.Equal(3_000_100UL, back.Spent.Values.Single());
+    }
+
+    /// <summary>A view-only wallet has no key images, and that difference has to survive too.</summary>
+    [Fact]
+    public void AnOutputWithoutAKeyImageSurvives()
+    {
+        OwnedOutput output = new(
+            10, new byte[32], 0, Point.FromSecret(Scalar.Random()), 5, Scalar.Random(),
+            new SubaddressIndex(0, 0), KeyImage: null);
+
+        WalletSnapshot snapshot = new(11, [output], new Dictionary<string, ulong>());
+
+        (_, WalletSnapshot back, _) = Storage.Open(
+            Storage.Encrypt(Account.Create(), "p", 0, Fast, null, snapshot), "p");
+
+        Assert.Null(Assert.Single(back.Outputs).KeyImage);
     }
 
     /// <summary>The seed survives, which is what makes a wallet file a wallet and not a key blob.</summary>

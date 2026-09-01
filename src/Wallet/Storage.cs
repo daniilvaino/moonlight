@@ -44,7 +44,8 @@ public static class Storage
         string password,
         ulong scannedHeight = 0,
         int iterations = DefaultIterations,
-        SubaddressIndex? lookahead = null)
+        SubaddressIndex? lookahead = null,
+        WalletSnapshot? snapshot = null)
     {
         ArgumentNullException.ThrowIfNull(account);
         ArgumentException.ThrowIfNullOrEmpty(password);
@@ -64,12 +65,17 @@ public static class Storage
 
         SubaddressIndex range = lookahead ?? DefaultLookahead;
 
-        byte[] plaintext = new byte[BodyLength];
-        account.SpendSecret.ToBytes().CopyTo(plaintext, 0);
-        account.ViewSecret.ToBytes().CopyTo(plaintext, 32);
-        BinaryPrimitives.WriteUInt64LittleEndian(plaintext.AsSpan(64), scannedHeight);
-        BinaryPrimitives.WriteUInt32LittleEndian(plaintext.AsSpan(72), range.Major);
-        BinaryPrimitives.WriteUInt32LittleEndian(plaintext.AsSpan(76), range.Minor);
+        byte[] fixedPart = new byte[BodyLength];
+        account.SpendSecret.ToBytes().CopyTo(fixedPart, 0);
+        account.ViewSecret.ToBytes().CopyTo(fixedPart, 32);
+        BinaryPrimitives.WriteUInt64LittleEndian(fixedPart.AsSpan(64), snapshot?.ScannedHeight ?? scannedHeight);
+        BinaryPrimitives.WriteUInt32LittleEndian(fixedPart.AsSpan(72), range.Major);
+        BinaryPrimitives.WriteUInt32LittleEndian(fixedPart.AsSpan(76), range.Minor);
+
+        List<byte> body = [.. fixedPart];
+        SnapshotFormat.Write(body, snapshot ?? new WalletSnapshot(scannedHeight, [], new Dictionary<string, ulong>()));
+
+        byte[] plaintext = [.. body];
 
         byte[] ciphertext = new byte[plaintext.Length];
         byte[] tag = new byte[TagLength];
@@ -85,15 +91,26 @@ public static class Storage
     }
 
     /// <summary>
-    /// The body is 80 bytes; files written before the lookahead was stored are 72
-    /// and open with the default. The tag covers the length either way, so there is
-    /// nothing to guess at.
+    /// The fixed part: two keys, the scanned height and the lookahead. Everything a
+    /// scan found follows it. Files written before the lookahead existed are 72
+    /// bytes and open with the default — the tag covers the length either way, so
+    /// there is nothing to guess at.
     /// </summary>
     private const int BodyLength = 80;
 
     private const int BodyLengthWithoutLookahead = 72;
 
     public static (Account Account, ulong ScannedHeight, SubaddressIndex Lookahead) Decrypt(
+        ReadOnlySpan<byte> file,
+        string password)
+    {
+        (Account account, WalletSnapshot snapshot, SubaddressIndex lookahead) = Open(file, password);
+
+        return (account, snapshot.ScannedHeight, lookahead);
+    }
+
+    /// <summary>The whole file, scan results included.</summary>
+    public static (Account Account, WalletSnapshot Snapshot, SubaddressIndex Lookahead) Open(
         ReadOnlySpan<byte> file,
         string password)
     {
@@ -134,7 +151,7 @@ public static class Storage
             throw new FormatException("wrong password, or the wallet file has been modified", e);
         }
 
-        if (plaintext.Length is not (BodyLength or BodyLengthWithoutLookahead))
+        if (plaintext.Length < BodyLengthWithoutLookahead)
         {
             throw new FormatException("wallet file has the wrong shape");
         }
@@ -146,15 +163,23 @@ public static class Storage
 
         ulong scannedHeight = BinaryPrimitives.ReadUInt64LittleEndian(plaintext.AsSpan(64));
 
-        SubaddressIndex lookahead = plaintext.Length == BodyLength
+        SubaddressIndex lookahead = plaintext.Length >= BodyLength
             ? new SubaddressIndex(
                 BinaryPrimitives.ReadUInt32LittleEndian(plaintext.AsSpan(72)),
                 BinaryPrimitives.ReadUInt32LittleEndian(plaintext.AsSpan(76)))
             : DefaultLookahead;
 
+        WalletSnapshot snapshot = new(scannedHeight, [], new Dictionary<string, ulong>());
+
+        if (plaintext.Length > BodyLength)
+        {
+            Serialization.Reader reader = new(plaintext.AsSpan(BodyLength));
+            snapshot = SnapshotFormat.Read(ref reader, scannedHeight);
+        }
+
         CryptographicOperations.ZeroMemory(plaintext);
 
-        return (account, scannedHeight, lookahead);
+        return (account, snapshot, lookahead);
     }
 
     private static byte[] DeriveKey(string password, ReadOnlySpan<byte> salt, int iterations)

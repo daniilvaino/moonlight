@@ -3,6 +3,15 @@ using Moonlight.Serialization;
 
 namespace Moonlight.Wallet;
 
+/// <summary>
+/// What a scan found, in a form that survives being written to a file. Without
+/// this a wallet reads the chain from its restore height on every run.
+/// </summary>
+public sealed record WalletSnapshot(
+    ulong ScannedHeight,
+    IReadOnlyList<OwnedOutput> Outputs,
+    IReadOnlyDictionary<string, ulong> Spent);
+
 /// <summary>What a wallet holds, and how much of it can be spent right now.</summary>
 public readonly record struct Balance(ulong Total, ulong Unlocked)
 {
@@ -32,7 +41,6 @@ public sealed class WalletState
     private readonly Scanner scanner;
     private readonly Dictionary<string, OwnedOutput> outputs = new(StringComparer.Ordinal);
     private readonly Dictionary<string, ulong> spentAt = new(StringComparer.Ordinal);
-    private readonly Dictionary<string, (bool IsCoinbase, ulong UnlockTime)> conditions = new(StringComparer.Ordinal);
 
     public WalletState(Scanner scanner, ulong restoreHeight = 0)
     {
@@ -71,14 +79,28 @@ public sealed class WalletState
 
             foreach (OwnedOutput output in scanner.Scan(transaction, height))
             {
-                string key = output.Key.ToString();
-
-                outputs[key] = output;
-                conditions[key] = (transaction.IsCoinbase, transaction.UnlockTime);
+                outputs[output.Key.ToString()] = output;
             }
         }
 
         ScannedHeight = height + 1;
+    }
+
+    /// <summary>Everything worth keeping between runs: the outputs, and which are spent.</summary>
+    public WalletSnapshot Snapshot() => new(ScannedHeight, [.. outputs.Values], spentAt.ToDictionary(e => e.Key, e => e.Value, StringComparer.Ordinal));
+
+    /// <summary>Reloads a snapshot, so a wallet resumes where it left off rather than rescanning the chain.</summary>
+    public void Restore(WalletSnapshot snapshot)
+    {
+        ArgumentNullException.ThrowIfNull(snapshot);
+
+        outputs.Clear();
+        spentAt.Clear();
+
+        foreach (OwnedOutput output in snapshot.Outputs) outputs[output.Key.ToString()] = output;
+        foreach ((string image, ulong height) in snapshot.Spent) spentAt[image] = height;
+
+        ScannedHeight = snapshot.ScannedHeight;
     }
 
     public bool IsSpent(OwnedOutput output)
@@ -113,21 +135,17 @@ public sealed class WalletState
 
     public Balance Balance() => BalanceAt(ScannedHeight == 0 ? 0 : ScannedHeight - 1);
 
-    private bool IsUnlocked(OwnedOutput output, ulong height, DateTimeOffset now)
+    private static bool IsUnlocked(OwnedOutput output, ulong height, DateTimeOffset now)
     {
-        (bool isCoinbase, ulong unlockTime) = conditions.TryGetValue(output.Key.ToString(), out var found)
-            ? found
-            : (false, 0);
-
-        ulong age = isCoinbase ? CoinbaseLock : SpendableAge;
+        ulong age = output.IsCoinbase ? CoinbaseLock : SpendableAge;
         if (height + 1 < output.Height + age) return false;
 
-        if (unlockTime == 0) return true;
+        if (output.UnlockTime == 0) return true;
 
         // The same field means two things, split at a height no chain will reach.
-        return unlockTime < MaxBlockNumber
-            ? height + 1 >= unlockTime
-            : (ulong)now.ToUnixTimeSeconds() >= unlockTime;
+        return output.UnlockTime < MaxBlockNumber
+            ? height + 1 >= output.UnlockTime
+            : (ulong)now.ToUnixTimeSeconds() >= output.UnlockTime;
     }
 
     private void RecordSpends(Transaction transaction, ulong height)
