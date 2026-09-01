@@ -35,9 +35,19 @@ public static class BinEndpoints
         ArgumentNullException.ThrowIfNull(http);
         ArgumentNullException.ThrowIfNull(knownBlockIds);
 
+        // block_ids is one blob of concatenated hashes, not an array of them —
+        // KV_SERIALIZE_CONTAINER_POD_AS_BLOB in the daemon's own definition. Sending
+        // an array is refused with a 400 and no explanation.
+        byte[] locator = new byte[knownBlockIds.Count * 32];
+        for (int i = 0; i < knownBlockIds.Count; i++) knownBlockIds[i].CopyTo(locator, i * 32);
+
         byte[] request = PortableWriter.Section(w =>
         {
-            w.BytesArray("block_ids", knownBlockIds);
+            // client is not optional in the daemon's definition, even when RPC
+            // payment is off: a request without it fails to parse and comes back
+            // as a bare 400.
+            w.Bytes("client", []);
+            w.Bytes("block_ids", locator);
             w.Number("start_height", startHeight);
             w.Bool("prune", false);
             w.Bool("no_miner_tx", false);

@@ -1,3 +1,4 @@
+using System.Net.Http;
 using System.Text.Json;
 using Moonlight.Node;
 using Moonlight.Serialization;
@@ -14,6 +15,51 @@ namespace Moonlight.Integration.Tests;
 /// </summary>
 public class BinEndpointsTests
 {
+    /// <summary>
+    /// The request the daemon actually accepts. Two details in its own definition
+    /// are easy to get wrong and both come back as a bare 400: block_ids is one
+    /// blob of concatenated hashes rather than an array of them
+    /// (KV_SERIALIZE_CONTAINER_POD_AS_BLOB), and client is not optional even when
+    /// RPC payment is off.
+    /// </summary>
+    [Fact]
+    public async Task TheRequestHasTheShapeTheDaemonExpects()
+    {
+        byte[][] locator = [.. Enumerable.Range(0, 3).Select(i => (byte[])[.. Enumerable.Repeat((byte)i, 32)])];
+        RecordingHandler handler = new();
+
+        using HttpClient http = new(handler) { BaseAddress = new Uri("http://node.invalid:18081/") };
+
+        await Assert.ThrowsAnyAsync<Exception>(() => BinEndpoints.GetBlocksAsync(http, 3_738_588, locator));
+
+        EpeeValue.Section request = PortableStorage.Parse(handler.Body);
+
+        Assert.Equal("/getblocks.bin", handler.Path);
+        Assert.IsType<EpeeValue.Text>(request["client"]);
+
+        EpeeValue.Text ids = Assert.IsType<EpeeValue.Text>(request["block_ids"]);
+        Assert.Equal(96, ids.Value.Length);
+        Assert.Equal(locator[1], ids.Value[32..64]);
+
+        Assert.Equal(3_738_588UL, Assert.IsType<EpeeValue.Number>(request["start_height"]).Value);
+        Assert.False(Assert.IsType<EpeeValue.Flag>(request["prune"]).Value);
+    }
+
+    private sealed class RecordingHandler : HttpMessageHandler
+    {
+        public byte[] Body { get; private set; } = [];
+
+        public string Path { get; private set; } = "";
+
+        protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            Path = request.RequestUri!.AbsolutePath;
+            Body = await request.Content!.ReadAsByteArrayAsync(cancellationToken);
+
+            return new HttpResponseMessage(System.Net.HttpStatusCode.BadRequest);
+        }
+    }
+
     [Fact]
     public void ReadsBlocksAndTheirTransactions()
     {
