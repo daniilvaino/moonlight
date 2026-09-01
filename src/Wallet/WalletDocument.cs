@@ -42,8 +42,15 @@ public sealed record WalletSettings
 /// </remarks>
 public sealed record WalletDocument
 {
+    /// <summary>
+    /// The shape of this file. Adding a setting bumps it, and a fingerprint is only
+    /// compared against a file of the same shape — otherwise every wallet written
+    /// before the new field would report itself as tampered with.
+    /// </summary>
+    public const int CurrentFormat = 2;
+
     [JsonPropertyName("format")]
-    public int Format { get; init; } = 2;
+    public int Format { get; init; } = CurrentFormat;
 
     /// <summary>Shown for a human reading the file; the authority is inside the blob.</summary>
     [JsonPropertyName("network")]

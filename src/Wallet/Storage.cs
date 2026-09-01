@@ -181,15 +181,11 @@ public static class Storage
         List<byte> body = [.. fixedPart];
         SnapshotFormat.Write(body, snapshot ?? new WalletSnapshot(scannedHeight, [], new Dictionary<string, ulong>()));
 
-        // The daemon last used, so a wallet reopens against the node it was
-        // scanned with rather than whatever the default happens to be.
-        byte[] address = System.Text.Encoding.UTF8.GetBytes(daemon ?? "");
-        body.Add((byte)Math.Min(address.Length, 255));
-        body.AddRange(address.AsSpan(0, Math.Min(address.Length, 255)).ToArray());
-
-        // The settings live outside where they can be read and edited; their hash
-        // lives in here, so a wallet can tell when something else changed them.
-        if (!settingsFingerprint.IsEmpty) body.AddRange(settingsFingerprint.ToArray());
+        // Everything after the snapshot is a tagged section: a tag, a length, then
+        // the bytes. A reader skips what it does not know, so a later version can
+        // add a field without the order mattering and without breaking this one.
+        WriteSection(body, SectionDaemon, System.Text.Encoding.UTF8.GetBytes(daemon ?? ""));
+        WriteSection(body, SectionSettingsFingerprint, settingsFingerprint);
 
         byte[] plaintext = [.. body];
 
@@ -216,6 +212,21 @@ public static class Storage
 
     private const int BodyLengthWithoutLookahead = 72;
 
+    private const byte SectionDaemon = 1;
+
+    private const byte SectionSettingsFingerprint = 2;
+
+    private static void WriteSection(List<byte> body, byte tag, ReadOnlySpan<byte> payload)
+    {
+        if (payload.IsEmpty) return;
+
+        body.Add(tag);
+
+        byte[] length = new byte[Crypto.VarInt.MaxLength];
+        body.AddRange(length.AsSpan(0, Crypto.VarInt.Write(length, (ulong)payload.Length)).ToArray());
+        body.AddRange(payload.ToArray());
+    }
+
     public static (Account Account, ulong ScannedHeight, SubaddressIndex Lookahead) Decrypt(
         ReadOnlySpan<byte> file,
         string password)
@@ -236,7 +247,11 @@ public static class Storage
         {
             Document = document,
             Lookahead = document.Settings.Lookahead,
-            SettingsChangedOutside = !opened.Fingerprint.AsSpan().SequenceEqual(document.SettingsFingerprint()),
+            // Only meaningful within one shape of the file: a wallet written before
+            // a setting existed hashes a different object, and that is not tampering.
+            SettingsChangedOutside = document.Format == WalletDocument.CurrentFormat
+                && opened.Fingerprint.Length == 32
+                && !opened.Fingerprint.AsSpan().SequenceEqual(document.SettingsFingerprint()),
         };
     }
 
@@ -309,13 +324,26 @@ public static class Storage
             Serialization.Reader reader = new(plaintext.AsSpan(BodyLength));
             snapshot = SnapshotFormat.Read(ref reader, scannedHeight);
 
-            if (!reader.AtEnd)
+            while (!reader.AtEnd)
             {
-                byte length = reader.ReadByte();
-                if (length > 0) daemon = System.Text.Encoding.UTF8.GetString(reader.ReadBytes(length));
-            }
+                byte section = reader.ReadByte();
+                int length = (int)reader.ReadVarInt();
+                ReadOnlySpan<byte> payload = reader.ReadBytes(length);
 
-            if (reader.Remaining >= 32) fingerprint = reader.ReadArray(32);
+                switch (section)
+                {
+                    case SectionDaemon when length > 0:
+                        daemon = System.Text.Encoding.UTF8.GetString(payload);
+                        break;
+
+                    case SectionSettingsFingerprint when length == 32:
+                        fingerprint = payload.ToArray();
+                        break;
+
+                    // Anything else was written by a later version. Skipping it is
+                    // the point of the length being there.
+                }
+            }
         }
 
         CryptographicOperations.ZeroMemory(plaintext);

@@ -37,6 +37,12 @@ they can also be changed by somebody else — a node quietly redirected is a pri
 attack. Their hash is stored inside the blob, so the wallet reports that they
 changed rather than either refusing to open or saying nothing.
 
+Both halves are meant to grow. Unknown JSON fields are ignored, and the hash is
+only compared between files of the same `format`, so adding a setting does not make
+every existing wallet look tampered with. Inside the blob, everything after the scan
+results is a tagged section — tag, length, bytes — so a reader steps over what it
+does not know and a later version can add a field without the order mattering.
+
 Key material is never `byte[]`: `SecretKey`/`PublicKey`/`KeyImage`/`Commitment` are
 distinct types with no implicit conversions.
 
