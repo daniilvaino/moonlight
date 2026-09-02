@@ -151,11 +151,20 @@ public sealed class WalletState
         ScannedHeight = snapshot.ScannedHeight;
     }
 
-    public bool IsSpent(OwnedOutput output)
+    public bool IsSpent(OwnedOutput output) => SpentAt(output) is not null;
+
+    /// <summary>
+    /// The block an output was spent in, or null while it is still ours. The height
+    /// is the whole of what the chain says about a spend, and a ledger that wants to
+    /// put it in order needs it rather than a yes or no.
+    /// </summary>
+    public ulong? SpentAt(OwnedOutput output)
     {
         ArgumentNullException.ThrowIfNull(output);
 
-        return output.KeyImage is { } image && spentAt.ContainsKey(image.ToString());
+        return output.KeyImage is { } image && spentAt.TryGetValue(image.ToString(), out ulong height)
+            ? height
+            : null;
     }
 
     /// <summary>
@@ -172,7 +181,7 @@ public sealed class WalletState
         {
             total += output.Amount;
 
-            if (IsUnlocked(output, height, now ?? DateTimeOffset.UtcNow))
+            if (IsUnlocked(output, height, now))
             {
                 unlocked += output.Amount;
             }
@@ -183,8 +192,16 @@ public sealed class WalletState
 
     public Balance Balance() => BalanceAt(ScannedHeight == 0 ? 0 : ScannedHeight - 1);
 
-    private static bool IsUnlocked(OwnedOutput output, ulong height, DateTimeOffset now)
+    /// <summary>
+    /// Whether one output could be spent in the block after a height. Public because
+    /// a coin list has to say why a coin cannot be used, and "locked" is the answer
+    /// for a young output as much as for one carrying an unlock time.
+    /// </summary>
+    public static bool IsUnlocked(OwnedOutput output, ulong height, DateTimeOffset? now = null)
     {
+        ArgumentNullException.ThrowIfNull(output);
+
+        DateTimeOffset at = now ?? DateTimeOffset.UtcNow;
         ulong age = output.IsCoinbase ? CoinbaseLock : SpendableAge;
         if (height + 1 < output.Height + age) return false;
 
@@ -193,7 +210,7 @@ public sealed class WalletState
         // The same field means two things, split at a height no chain will reach.
         return output.UnlockTime < MaxBlockNumber
             ? height + 1 >= output.UnlockTime
-            : (ulong)now.ToUnixTimeSeconds() >= output.UnlockTime;
+            : (ulong)at.ToUnixTimeSeconds() >= output.UnlockTime;
     }
 
     private void RecordSpends(Transaction transaction, ulong height)

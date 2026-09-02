@@ -1,4 +1,5 @@
 using System.Net.Http;
+using Moonlight.Diagnostics;
 using Moonlight.Node;
 using Moonlight.Serialization;
 
@@ -75,8 +76,12 @@ public sealed class ChainSync : IDisposable
         // the date actually names. RefineAsync refuses once there is money to lose.
         if (PendingRestoreDate is DateTimeOffset pending)
         {
-            await RestoreHeight.RefineAsync(daemon, pending, state, cancellationToken).ConfigureAwait(false);
+            ulong? exact = await RestoreHeight.RefineAsync(daemon, pending, state, cancellationToken).ConfigureAwait(false);
             PendingRestoreDate = null;
+
+            Log.Info("restore", exact is ulong at
+                ? $"{pending:yyyy-MM-dd} resolved to block {at}, from an estimate"
+                : $"{pending:yyyy-MM-dd} left as estimated — the wallet has already scanned");
         }
 
         // Before the first batch, so the screen shows where it is going rather than
@@ -123,6 +128,7 @@ public sealed class ChainSync : IDisposable
                 // for a wallet left open — but it never swallows the reason. A
                 // background loop that fails silently is indistinguishable from one
                 // that is not running, which is the worst thing it could be.
+                Log.Error("sync", "catch-up failed", e);
                 onError?.Invoke(e);
             }
 
@@ -154,7 +160,13 @@ public sealed class ChainSync : IDisposable
         BlockBatch batch = await BinEndpoints.GetBlocksAsync(
             http, state.ScannedHeight, Locator(), cancellationToken).ConfigureAwait(false);
 
-        if (batch.Blocks.Count == 0) return false;
+        if (batch.Blocks.Count == 0)
+        {
+            Log.Debug("sync", $"daemon sent nothing from block {state.ScannedHeight}");
+            return false;
+        }
+
+        Log.Debug("sync", $"{batch.Blocks.Count} blocks from {batch.StartHeight}");
 
         ulong height = batch.StartHeight;
         long next = Environment.TickCount64 + (long)ProgressInterval.TotalMilliseconds;

@@ -7,6 +7,14 @@
     <PublishAot>true</PublishAot>
     <InvariantTimezone>true</InvariantTimezone>
     <ApplicationIcon>../../media/favicon.ico</ApplicationIcon>
+    <MoonlightHost Condition="'$(MoonlightHost)' == ''">console</MoonlightHost>
+  </PropertyGroup>
+
+  <!-- Vendor\TerminalGui\TerminalGui.props sets the same constant for the module.
+       The app needs it too: the two hosts differ in what they can report, and one
+       of those differences reaches the screens. -->
+  <PropertyGroup Condition="'$(MoonlightHost)' == 'sharpos'">
+    <DefineConstants>$(DefineConstants);SHARPOS</DefineConstants>
   </PropertyGroup>
 
   <ItemGroup>

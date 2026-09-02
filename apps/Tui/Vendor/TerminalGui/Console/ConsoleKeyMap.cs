@@ -14,15 +14,20 @@ namespace Terminal.Gui
             bool alt = (info.Modifiers & ConsoleModifiers.Alt) != 0;
             bool ctrl = (info.Modifiers & ConsoleModifiers.Control) != 0;
 
-            Key key = Translate(info, shift, ctrl);
+            Key key = Translate(info, shift, ctrl, alt);
 
             if (shift && key < Key.CharMask) key |= Key.ShiftMask;
             if (alt) key |= Key.AltMask;
 
+            // Ctrl was never added, so Ctrl+Left arrived as a bare Left: bindings
+            // written the library's way, as CtrlMask | CursorLeft, could not match
+            // anything this produced.
+            if (ctrl) key |= Key.CtrlMask;
+
             return new KeyEvent(key, new KeyModifiers { Shift = shift, Ctrl = ctrl, Alt = alt });
         }
 
-        private static Key Translate(ConsoleKeyInfo info, bool shift, bool ctrl)
+        private static Key Translate(ConsoleKeyInfo info, bool shift, bool ctrl, bool alt)
         {
             switch (info.Key)
             {
@@ -56,12 +61,36 @@ namespace Terminal.Gui
                 case ConsoleKey.F12: return Key.F12;
             }
 
-            char ch = info.KeyChar;
-            if (ch == 0) return Key.Unknown;
+            // With Alt held, the character depends on the keyboard layout while the
+            // key does not: Alt+D arrives as 'в' on a Russian layout, and sometimes
+            // as no character at all. A shortcut means the physical key, so that is
+            // what it reads — otherwise Alt+W stops opening the Wallet menu for
+            // anyone not typing in Latin.
+            //
+            // AltGr is Ctrl+Alt on Windows and does produce text, so it is left
+            // alone.
+            if (alt && !ctrl)
+            {
+                if (info.Key >= ConsoleKey.A && info.Key <= ConsoleKey.Z)
+                {
+                    return (Key)('A' + (info.Key - ConsoleKey.A));
+                }
 
-            // Ctrl+letter already arrives as the control code; say so explicitly
-            // so a Quit binding on Key.C | CtrlMask matches.
-            if (ctrl && ch >= 1 && ch <= 26) return (Key)ch | Key.CtrlMask;
+                if (info.Key >= ConsoleKey.D0 && info.Key <= ConsoleKey.D9)
+                {
+                    return (Key)('0' + (info.Key - ConsoleKey.D0));
+                }
+            }
+
+            char ch = info.KeyChar;
+
+            // Ctrl+letter arrives as the control code — Ctrl+S is 0x13 — but the
+            // library writes its shortcuts as CtrlMask | Key.S, and Key.S is the
+            // letter S. The letter is what a binding can be written against, so
+            // that is what this returns; ToKeyEvent adds the mask.
+            if (ctrl && ch >= 1 && ch <= 26) return (Key)('A' + ch - 1);
+
+            if (ch == 0) return Key.Unknown;
 
             return (Key)ch;
         }
