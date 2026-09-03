@@ -4,7 +4,7 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:local="using:Moonlight.Gui.Demo"
     xmlns:views="using:Moonlight.Gui.Demo.Views"
-    Title="wallet_1 (#0) - Moonlight"
+    Title="wallet_1 (#0) - Moonlight Demo"
     Width="977"
     Height="499"
     MinWidth="760"
@@ -46,8 +46,6 @@
         <MenuItem Header="Home" ToggleType="CheckBox" IsChecked="True" />
         <MenuItem Header="Coins" ToggleType="CheckBox" IsChecked="True" />
         <MenuItem Header="Contacts" ToggleType="CheckBox" IsChecked="True" />
-        <MenuItem Header="Notes" ToggleType="CheckBox" IsChecked="True" />
-        <MenuItem Header="Calc" ToggleType="CheckBox" IsChecked="True" />
         <Separator />
         <MenuItem Header="Show Searchbar" ToggleType="CheckBox" IsChecked="True" />
       </MenuItem>
@@ -87,14 +85,12 @@
           <Button x:Name="ReceiveTab" Classes="tab" Click="ShowReceive"><Grid ColumnDefinitions="2,*,2"><Border Classes="rail-mark" /><StackPanel Grid.Column="1" Spacing="4"><PathIcon Data="M7,1h2v8l3-3 1.5,1.5L8,13 2.5,7.5 4,6l3,3z M2,13h12v2H2z" /><TextBlock Classes="micro" Text="Receive" /></StackPanel></Grid></Button>
           <Button x:Name="CoinsTab" Classes="tab" Click="ShowCoins"><Grid ColumnDefinitions="2,*,2"><Border Classes="rail-mark" /><StackPanel Grid.Column="1" Spacing="4"><PathIcon Data="M8,1c3.9,0 7,1.3 7,3s-3.1,3-7,3-7-1.3-7-3 3.1-3 7-3z M1,6.5C2.5,8 5,8.7 8,8.7s5.5-.7 7-2.2V9c0,1.7-3.1,3-7,3s-7-1.3-7-3z M1,11.5C2.5,13 5,13.7 8,13.7s5.5-.7 7-2.2V13c0,1.7-3.1,3-7,3s-7-1.3-7-3z" /><TextBlock Classes="micro" Text="Coins" /></StackPanel></Grid></Button>
           <Button x:Name="ContactsTab" Classes="tab" Click="ShowContacts"><Grid ColumnDefinitions="2,*,2"><Border Classes="rail-mark" /><StackPanel Grid.Column="1" Spacing="4"><PathIcon Data="M3,1h10v14H3z M1,3h2v2H1z M1,7h2v2H1z M1,11h2v2H1z M8,4a2,2 0 1,1 0,4 2,2 0 0,1 0-4z M5,12c0-2 1.3-3 3-3s3,1 3,3z" /><TextBlock Classes="micro" Text="Contacts" /></StackPanel></Grid></Button>
-          <Button x:Name="NotesTab" Classes="tab" Click="ShowNotes"><Grid ColumnDefinitions="2,*,2"><Border Classes="rail-mark" /><StackPanel Grid.Column="1" Spacing="4"><PathIcon Data="M2.5,1 H10 L13.5,4.5 V15 H2.5 Z M4.5,7 h7 v1.5 h-7 z M4.5,10 h7 v1.5 h-7 z" /><TextBlock Classes="micro" Text="Notes" /></StackPanel></Grid></Button>
-          <Button x:Name="CalcTab" Classes="tab" Click="ShowCalc"><Grid ColumnDefinitions="2,*,2"><Border Classes="rail-mark" /><StackPanel Grid.Column="1" Spacing="4"><PathIcon Data="M2,1h12v14H2z M4,3h8v3H4z M4,8h2v2H4z M7,8h2v2H7z M10,8h2v2h-2z M4,11h2v2H4z M7,11h2v2H7z M10,11h2v2h-2z" /><TextBlock Classes="micro" Text="Calc" /></StackPanel></Grid></Button>
         </StackPanel>
       </Border>
 
       <Grid Grid.Column="1">
 
-        <Grid x:Name="HomePage" Margin="12,11,12,12" RowDefinitions="Auto,11,Auto,9,*">
+        <Grid x:Name="HomePage" Margin="12,11,12,12" RowDefinitions="Auto,11,Auto,*">
 
           <Grid ColumnDefinitions="*,9,*,9,*,26,138">
             <Border Classes="panel" Padding="9,6"><StackPanel Spacing="4"><TextBlock Classes="micro" Text="XMR" /><Grid ColumnDefinitions="*,Auto"><TextBlock VerticalAlignment="Center" Text="€201.19" /><TextBlock Grid.Column="1" VerticalAlignment="Center" Foreground="{StaticResource Positive}" Text="+0.9%" /></Grid></StackPanel></Border>
@@ -103,34 +99,36 @@
             <Border Grid.Column="6" Classes="panel" Padding="9,6"><StackPanel Spacing="4"><TextBlock Classes="micro" Text="Balance" /><TextBlock VerticalAlignment="Center" Classes="amount" Text="€4.02" /></StackPanel></Border>
           </Grid>
 
-          <StackPanel Grid.Row="2" Orientation="Horizontal">
-            <Button Classes="subtab active">Revuo</Button>
-          </StackPanel>
-
-          <Grid Grid.Row="4" RowDefinitions="25,9,*">
-            <Grid ColumnDefinitions="*,9,25">
-              <ComboBox HorizontalAlignment="Stretch" SelectedIndex="0"><ComboBoxItem Content="Issue 233: March 23 - 30, 2025" /></ComboBox>
-              <Button Grid.Column="2" Classes="tool" ToolTip.Tip="Open in browser"><PathIcon Width="13" Height="13" Foreground="{StaticResource Muted}" Data="M3,2h5v2H5v7h7V8h2v5H3z M9,1h6v6h-2V4.4L7.7,9.7 6.3,8.3 11.6,3H9z" /></Button>
+          <Border Grid.Row="2" Classes="panel" Padding="14,11">
+            <Grid ColumnDefinitions="*,*,*" >
+              <StackPanel Spacing="7">
+                <TextBlock Classes="micro" Text="Wallet" />
+                <Grid ColumnDefinitions="86,*" RowDefinitions="Auto,5,Auto,5,Auto">
+                  <TextBlock Classes="dim" Text="Status" /><TextBlock Grid.Column="1" Foreground="{StaticResource Positive}" Text="Synchronized" />
+                  <TextBlock Grid.Row="2" Classes="dim" Text="Height" /><TextBlock Grid.Row="2" Grid.Column="1" Text="3 380 455" />
+                  <TextBlock Grid.Row="4" Classes="dim" Text="Node" /><TextBlock Grid.Row="4" Grid.Column="1" Text="127.0.0.1:18081" />
+                </Grid>
+              </StackPanel>
+              <StackPanel Grid.Column="1" Spacing="7">
+                <TextBlock Classes="micro" Text="Balance" />
+                <Grid ColumnDefinitions="86,*" RowDefinitions="Auto,5,Auto,5,Auto">
+                  <TextBlock Classes="dim" Text="Available" /><TextBlock Grid.Column="1" Classes="amount" Text="0.009959" />
+                  <TextBlock Grid.Row="2" Classes="dim" Text="Locked" /><TextBlock Grid.Row="2" Grid.Column="1" Foreground="#D9A441" Text="0.010000" />
+                  <TextBlock Grid.Row="4" Classes="dim" Text="Frozen" /><TextBlock Grid.Row="4" Grid.Column="1" Foreground="#6B8FC7" Text="0.000010" />
+                </Grid>
+              </StackPanel>
+              <StackPanel Grid.Column="2" Spacing="7">
+                <TextBlock Classes="micro" Text="Outputs" />
+                <Grid ColumnDefinitions="86,*" RowDefinitions="Auto,5,Auto,5,Auto">
+                  <TextBlock Classes="dim" Text="Spendable" /><TextBlock Grid.Column="1" Text="3" />
+                  <TextBlock Grid.Row="2" Classes="dim" Text="Locked" /><TextBlock Grid.Row="2" Grid.Column="1" Text="1" />
+                  <TextBlock Grid.Row="4" Classes="dim" Text="Frozen" /><TextBlock Grid.Row="4" Grid.Column="1" Text="1" />
+                </Grid>
+              </StackPanel>
             </Grid>
-            <Border Grid.Row="2" Classes="panel">
-              <ScrollViewer VerticalScrollBarVisibility="Auto">
-                <StackPanel Margin="12,10,14,12" Spacing="8">
-                  <TextBlock Classes="micro" Text="Recent News" />
-                  <TextBlock Classes="muted" TextWrapping="Wrap" Text="• Monero 0.18.4.0 ‘Fluorine Fermi’ Release has been tagged. Binaries and blog post containing release notes, changelog, to be expected in the next few days. Reach out to your preferred node operators and wallet developers in the meantime!" />
-                  <TextBlock Classes="muted" TextWrapping="Wrap" Text="• Community members launched monero.eco: a map or graph of Monero Ecosystem that aims to provide a visual overview, with web links to relevant XMR projects and services." />
-                  <TextBlock Classes="muted" TextWrapping="Wrap" Text="• MRL contributor Rucknium wrote a simulation of the risk of OSPEAD DSA adoption without a hard fork. A newer, more fine-tuned estimate is expected in the forthcoming weeks." />
-                  <TextBlock Classes="muted" TextWrapping="Wrap" Text="• Moonlight Wallet preview ships with a compact desktop interface and native wallet components." />
-                  <TextBlock Classes="muted" TextWrapping="Wrap" Text="• Cake and Monero.com released background sync and various UI enhancements." />
-                  <Border Classes="divider" Margin="0,4" />
-                  <TextBlock Classes="micro" Text="Upcoming Events" />
-                  <TextBlock Classes="muted" Text="There are no upcoming events." />
-                  <Border Classes="divider" Margin="0,4" />
-                  <StackPanel Orientation="Horizontal" Spacing="4"><TextBlock VerticalAlignment="Center" Classes="muted" Text="Read the whole issue in your" /><Button Classes="link" Tag="browser" Click="NewsAction"><TextBlock Text="browser" /></Button><TextBlock VerticalAlignment="Center" Classes="muted" Text="." /></StackPanel>
-                  <StackPanel Orientation="Horizontal" Spacing="4"><TextBlock VerticalAlignment="Center" Classes="muted" Text="Enjoy the digest? Consider a" /><Button Classes="link" Tag="donation" Click="NewsAction"><TextBlock Text="donation" /></Button><TextBlock VerticalAlignment="Center" Classes="muted" Text="to the author." /></StackPanel>
-                </StackPanel>
-              </ScrollViewer>
-            </Border>
-          </Grid>
+          </Border>
+
+          <Border Grid.Row="3" />
         </Grid>
 
         <views:HistoryView x:Name="HistoryPage" IsVisible="False" />
@@ -141,12 +139,12 @@
 
           <TextBlock Grid.Row="0" VerticalAlignment="Center" Classes="micro" Text="Pay to" />
           <Grid Grid.Row="0" Grid.Column="1" ColumnDefinitions="*,82" ColumnSpacing="9">
-            <TextBox x:Name="PayToBox" Height="44" AcceptsReturn="True" TextWrapping="NoWrap" PlaceholderText="Paste address, payment URI, OpenAlias, or QR code" Text="88sDCmPMEhMWKPitFXyJ9hSeFESwE6SAVCTrPo3WiRySiA3J8352Zcx2BTS7pVTb9G3pmxPJ2FpSy89M9nj5nQJ32D" />
+            <TextBox x:Name="PayToBox" Height="44" AcceptsReturn="True" TextWrapping="NoWrap" PlaceholderText="Paste address, payment URI, OpenAlias, or QR code" />
             <Button Grid.Column="1" VerticalAlignment="Bottom" Click="ScanPayment"><StackPanel Orientation="Horizontal" Spacing="6"><PathIcon Width="12" Height="12" Foreground="{StaticResource Muted}" Data="M1,1h5v2H3v3H1z M10,1h5v5h-2V3h-3z M1,10h2v3h3v2H1z M13,10h2v5h-5v-2h3z M6,6h4v4H6z" /><TextBlock Text="Scan" /></StackPanel></Button>
           </Grid>
 
           <TextBlock Grid.Row="2" VerticalAlignment="Center" Classes="micro" Text="Description" />
-          <TextBox x:Name="DescriptionBox" Grid.Row="2" Grid.Column="1" Text="Donation to CCS: Moonlight maintenance (2026 Q3)" />
+          <TextBox x:Name="DescriptionBox" Grid.Row="2" Grid.Column="1" PlaceholderText="Optional note, kept only in this wallet" />
 
           <TextBlock Grid.Row="4" VerticalAlignment="Center" Classes="micro" Text="Amount" />
           <Grid Grid.Row="4" Grid.Column="1" ColumnDefinitions="124,74,64,Auto,Auto,*" ColumnSpacing="9">
@@ -171,18 +169,7 @@
 
         <views:ContactsView x:Name="ContactsPage" IsVisible="False" />
 
-        <TextBox x:Name="NotesPage" IsVisible="False" Margin="12" AcceptsReturn="True" TextWrapping="Wrap" VerticalContentAlignment="Top" PlaceholderText="Notes are kept in the wallet cache." />
 
-        <Grid x:Name="CalcPage" IsVisible="False" Margin="12,12,12,12" RowDefinitions="25,11,Auto,*">
-          <Grid ColumnDefinitions="*,74,52,*,74">
-            <TextBox PlaceholderText="From..." Text="1.5" />
-            <ComboBox Grid.Column="1" SelectedIndex="0"><ComboBoxItem Content="XMR" /></ComboBox>
-            <PathIcon Grid.Column="2" Width="17" Height="17" HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="{StaticResource Muted}" Data="M2,5h9L8,2l1.5-1.5L15,6l-5.5,5.5L8,10l3-3H2z M14,11H5l3,3-1.5,1.5L1,10l5.5-5.5L8,6l-3,3h9z" />
-            <TextBox Grid.Column="3" PlaceholderText="To..." Text="326.58" />
-            <ComboBox Grid.Column="4" SelectedIndex="0"><ComboBoxItem Content="USD" /></ComboBox>
-          </Grid>
-          <Button Grid.Row="2" HorizontalAlignment="Right">Configure</Button>
-        </Grid>
 
       </Grid>
     </Grid>

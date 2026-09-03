@@ -12,8 +12,8 @@ public sealed partial class MainWindow : Window
     {
         InitializeComponent();
 
-        pages = [HomePage, HistoryPage, SendPage, ReceivePage, CoinsPage, ContactsPage, NotesPage, CalcPage];
-        tabs = [HomeTab, HistoryTab, SendTab, ReceiveTab, CoinsTab, ContactsTab, NotesTab, CalcTab];
+        pages = [HomePage, HistoryPage, SendPage, ReceivePage, CoinsPage, ContactsPage];
+        tabs = [HomeTab, HistoryTab, SendTab, ReceiveTab, CoinsTab, ContactsTab];
 
         HistoryPage.StatusChanged += ShowStatus;
         ReceivePage.StatusChanged += ShowStatus;
@@ -45,8 +45,6 @@ public sealed partial class MainWindow : Window
     private void ShowReceive(object? sender, RoutedEventArgs e) => Show(ReceivePage, ReceiveTab);
     private void ShowCoins(object? sender, RoutedEventArgs e) => Show(CoinsPage, CoinsTab);
     private void ShowContacts(object? sender, RoutedEventArgs e) => Show(ContactsPage, ContactsTab);
-    private void ShowNotes(object? sender, RoutedEventArgs e) => Show(NotesPage, NotesTab);
-    private void ShowCalc(object? sender, RoutedEventArgs e) => Show(CalcPage, CalcTab);
 
     private void Show(Control selectedPage, Button selectedTab)
     {

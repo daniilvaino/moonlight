@@ -25,10 +25,10 @@ public sealed class InterfacePolishTests
     private const double MicroFontSize = 10;
 
     private static readonly string[] Pages =
-        ["HomePage", "HistoryPage", "SendPage", "ReceivePage", "CoinsPage", "ContactsPage", "NotesPage", "CalcPage"];
+        ["HomePage", "HistoryPage", "SendPage", "ReceivePage", "CoinsPage", "ContactsPage"];
 
     private static readonly string[] Tabs =
-        ["HomeTab", "HistoryTab", "SendTab", "ReceiveTab", "CoinsTab", "ContactsTab", "NotesTab", "CalcTab"];
+        ["HomeTab", "HistoryTab", "SendTab", "ReceiveTab", "CoinsTab", "ContactsTab"];
 
     [AvaloniaFact]
     public static void TypeRampHasExactlyTwoSteps()

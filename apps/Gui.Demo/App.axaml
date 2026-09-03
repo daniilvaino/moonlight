@@ -227,21 +227,6 @@
       <Setter Property="Width" Value="13" />
       <Setter Property="Height" Value="13" />
     </Style>
-    <Style Selector="Button.subtab">
-      <Setter Property="FontFamily" Value="{StaticResource UiFont}" />
-      <Setter Property="Height" Value="24" />
-      <Setter Property="MinHeight" Value="24" />
-      <Setter Property="Padding" Value="12,2" />
-      <Setter Property="CornerRadius" Value="0" />
-      <Setter Property="Background" Value="Transparent" />
-      <Setter Property="Foreground" Value="{StaticResource Muted}" />
-      <Setter Property="BorderThickness" Value="0,0,0,2" />
-      <Setter Property="BorderBrush" Value="Transparent" />
-    </Style>
-    <Style Selector="Button.subtab.active">
-      <Setter Property="Foreground" Value="{StaticResource Ink}" />
-      <Setter Property="BorderBrush" Value="{StaticResource Accent}" />
-    </Style>
 
     <Style Selector="TextBox">
       <Setter Property="FontFamily" Value="{StaticResource MonoFont}" />

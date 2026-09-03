@@ -33,7 +33,7 @@ public sealed class VisualCaptureTests
             window.Show();
             Capture(window, "home");
 
-            foreach (string view in new[] { "History", "Send", "Receive", "Coins", "Contacts", "Notes", "Calc" })
+            foreach (string view in new[] { "History", "Send", "Receive", "Coins", "Contacts" })
             {
                 Button tab = window.FindControl<Button>($"{view}Tab")
                     ?? throw new InvalidOperationException($"Missing {view} tab.");
