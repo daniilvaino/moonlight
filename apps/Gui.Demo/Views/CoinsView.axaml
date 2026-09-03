@@ -3,22 +3,20 @@
     xmlns="https://github.com/avaloniaui"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     x:CompileBindings="False"
-    Margin="13,11,13,11">
-  <Grid RowDefinitions="25,7,*">
-    <Grid ColumnDefinitions="*,25" ColumnSpacing="6">
+    Margin="12">
+  <Grid RowDefinitions="25,9,*">
+    <Grid ColumnDefinitions="*,9,25">
       <TextBox x:Name="SearchBox" PlaceholderText="Search..." TextChanged="SearchChanged" />
-      <Button Grid.Column="1" Classes="tool" Content="☷" ToolTip.Tip="Coin filters">
+      <Button Grid.Column="2" Classes="tool" ToolTip.Tip="Coin filters">
+        <PathIcon Width="13" Height="13" Foreground="{StaticResource Muted}" Data="M2,3.4h12v1.2H2z M2,7.4h12v1.2H2z M2,11.4h12v1.2H2z M5,1.8h1.6v4H5z M10,5.8h1.6v4h-1.6z M4,9.8h1.6v4H4z" />
         <Button.Flyout>
           <MenuFlyout>
-            <MenuItem Header="Show spent coins" ToggleType="CheckBox" IsChecked="True" />
-            <MenuItem Header="Show frozen coins" ToggleType="CheckBox" IsChecked="True" />
-            <MenuItem Header="Show full values" ToggleType="CheckBox" />
-            <Separator />
-            <MenuItem Header="Reset columns" />
+            <MenuItem x:Name="ShowSpentMenu" Header="Show spent outputs" ToggleType="CheckBox" IsChecked="True" Click="FilterChanged" />
           </MenuFlyout>
         </Button.Flyout>
       </Button>
     </Grid>
+
     <DataGrid x:Name="Table"
               Grid.Row="2"
               AutoGenerateColumns="False"
@@ -40,20 +38,53 @@
           <MenuItem Header="Details" Click="ShowDetails" />
         </ContextMenu>
       </DataGrid.ContextMenu>
+
       <DataGrid.Columns>
+        <!-- A caption-less leading column: where an output says whether it is locked, spent,
+             frozen or picked to spend. -->
+        <DataGridTemplateColumn Width="26" CanUserResize="False" CanUserSort="False">
+          <DataGridTemplateColumn.CellTemplate>
+            <DataTemplate>
+              <PathIcon Width="11" Height="11" HorizontalAlignment="Center" VerticalAlignment="Center"
+                        Foreground="{Binding StateBrush}" Data="{Binding StateIcon}" ToolTip.Tip="{Binding State}" />
+            </DataTemplate>
+          </DataGridTemplateColumn.CellTemplate>
+        </DataGridTemplateColumn>
+
         <DataGridTemplateColumn Header="Pub Key" Width="92" SortMemberPath="PublicKey">
-          <DataGridTemplateColumn.CellTemplate><DataTemplate><Border Margin="-5,-1" Padding="5,1" Background="{Binding RowBrush}"><TextBlock Classes="mono" Text="{Binding PublicKey}" TextTrimming="CharacterEllipsis" /></Border></DataTemplate></DataGridTemplateColumn.CellTemplate>
+          <DataGridTemplateColumn.CellTemplate><DataTemplate><TextBlock VerticalAlignment="Center" Classes="mono" Foreground="{Binding Ink}" Text="{Binding PublicKeyDisplay}" TextTrimming="CharacterEllipsis" /></DataTemplate></DataGridTemplateColumn.CellTemplate>
         </DataGridTemplateColumn>
-        <DataGridTemplateColumn Header="TxID" Width="86" SortMemberPath="TransactionId">
-          <DataGridTemplateColumn.CellTemplate><DataTemplate><Border Margin="-5,-1" Padding="5,1" Background="{Binding RowBrush}"><TextBlock Classes="mono" Text="{Binding TransactionId}" TextTrimming="CharacterEllipsis" /></Border></DataTemplate></DataGridTemplateColumn.CellTemplate>
+        <DataGridTemplateColumn Header="TxID" Width="80" SortMemberPath="TransactionId">
+          <DataGridTemplateColumn.CellTemplate><DataTemplate><TextBlock VerticalAlignment="Center" Classes="mono" Foreground="{Binding Ink}" Text="{Binding TransactionIdDisplay}" TextTrimming="CharacterEllipsis" /></DataTemplate></DataGridTemplateColumn.CellTemplate>
         </DataGridTemplateColumn>
-        <DataGridTemplateColumn Header="Address" Width="104" SortMemberPath="Address">
-          <DataGridTemplateColumn.CellTemplate><DataTemplate><Border Margin="-5,-1" Padding="5,1" Background="{Binding RowBrush}"><TextBlock Classes="mono" Text="{Binding Address}" TextTrimming="CharacterEllipsis" /></Border></DataTemplate></DataGridTemplateColumn.CellTemplate>
+        <DataGridTemplateColumn Header="Address" Width="98" SortMemberPath="Address">
+          <DataGridTemplateColumn.CellTemplate><DataTemplate><TextBlock VerticalAlignment="Center" Classes="mono" Foreground="{Binding Ink}" Text="{Binding Address}" TextTrimming="CharacterEllipsis" /></DataTemplate></DataGridTemplateColumn.CellTemplate>
         </DataGridTemplateColumn>
-        <DataGridTextColumn Header="Label" Width="*" Binding="{Binding Label}" />
-        <DataGridTextColumn Header="Height" Width="76" Binding="{Binding BlockHeight}" SortMemberPath="BlockHeight" IsReadOnly="True" />
-        <DataGridTemplateColumn Header="Amount" Width="116" SortMemberPath="Amount">
-          <DataGridTemplateColumn.CellTemplate><DataTemplate><Border Margin="-5,-1" Padding="5,1" Background="{Binding RowBrush}"><TextBlock HorizontalAlignment="Right" Text="{Binding AmountText}" /></Border></DataTemplate></DataGridTemplateColumn.CellTemplate>
+        <DataGridTemplateColumn Header="Label" Width="*">
+          <DataGridTemplateColumn.CellTemplate><DataTemplate><TextBlock VerticalAlignment="Center" Classes="ui" Foreground="{Binding Ink}" Text="{Binding Label}" TextTrimming="CharacterEllipsis" /></DataTemplate></DataGridTemplateColumn.CellTemplate>
+          <DataGridTemplateColumn.CellEditingTemplate><DataTemplate><TextBox BorderThickness="0" Padding="0,0" Text="{Binding Label}" /></DataTemplate></DataGridTemplateColumn.CellEditingTemplate>
+        </DataGridTemplateColumn>
+        <DataGridTemplateColumn Header="Height" Width="84" SortMemberPath="BlockHeight">
+          <DataGridTemplateColumn.CellTemplate><DataTemplate><TextBlock VerticalAlignment="Center" HorizontalAlignment="Right" Classes="mono" Foreground="{Binding Ink}" Text="{Binding BlockHeight}" /></DataTemplate></DataGridTemplateColumn.CellTemplate>
+        </DataGridTemplateColumn>
+        <DataGridTemplateColumn Header="Spent Height" Width="116" SortMemberPath="SpentHeight">
+          <DataGridTemplateColumn.CellTemplate><DataTemplate><TextBlock VerticalAlignment="Center" HorizontalAlignment="Right" Classes="mono" Foreground="{Binding InkDim}" Text="{Binding SpentHeightText}" /></DataTemplate></DataGridTemplateColumn.CellTemplate>
+        </DataGridTemplateColumn>
+        <DataGridTemplateColumn Header="Amount" Width="128" SortMemberPath="Amount">
+          <DataGridTemplateColumn.CellTemplate>
+            <DataTemplate>
+              <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                <TextBlock Classes="mono" FontWeight="Medium" Foreground="{Binding AmountBrush}" Text="{Binding AmountHead}" />
+                <TextBlock Classes="mono" FontWeight="Medium" Foreground="{Binding AmountBrush}" Opacity="{Binding TailOpacity}" Text="{Binding AmountTail}" />
+              </StackPanel>
+            </DataTemplate>
+          </DataGridTemplateColumn.CellTemplate>
+        </DataGridTemplateColumn>
+        <DataGridTemplateColumn Header="Spent" Width="80" SortMemberPath="IsSpent">
+          <DataGridTemplateColumn.CellTemplate><DataTemplate><PathIcon Width="10" Height="10" HorizontalAlignment="Left" VerticalAlignment="Center" IsVisible="{Binding IsSpent}" Foreground="#C4574F" Data="M3.4,8 6.6,11.2 12.6,4.6 13.6,5.7 6.6,13.4 2.3,9.1z" /></DataTemplate></DataGridTemplateColumn.CellTemplate>
+        </DataGridTemplateColumn>
+        <DataGridTemplateColumn Header="Frozen" Width="78" SortMemberPath="IsFrozen">
+          <DataGridTemplateColumn.CellTemplate><DataTemplate><PathIcon Width="10" Height="10" HorizontalAlignment="Left" VerticalAlignment="Center" IsVisible="{Binding IsFrozen}" Foreground="#6B8FC7" Data="M3.4,8 6.6,11.2 12.6,4.6 13.6,5.7 6.6,13.4 2.3,9.1z" /></DataTemplate></DataGridTemplateColumn.CellTemplate>
         </DataGridTemplateColumn>
       </DataGrid.Columns>
     </DataGrid>
