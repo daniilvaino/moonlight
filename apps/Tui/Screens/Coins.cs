@@ -1,4 +1,5 @@
 using System.Globalization;
+using Moonlight.Core;
 using Moonlight.Wallet;
 using Terminal.Gui;
 

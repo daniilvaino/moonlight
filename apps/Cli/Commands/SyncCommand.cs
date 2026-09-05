@@ -1,3 +1,4 @@
+using Moonlight.Core;
 using Moonlight.Wallet;
 
 namespace Moonlight.Cli.Commands;
@@ -7,44 +8,32 @@ internal static class SyncCommand
 {
     public static async Task<int> Run(string[] args)
     {
-        WalletFile wallet = WalletCommands.Open(args);
-        (Account account, WalletSnapshot saved, SubaddressIndex lookahead, _) = wallet;
-
-        WalletState state = new(new Scanner(account, lookahead), saved.ScannedHeight);
-        state.Restore(saved);
-
-        using ChainSync sync = new(Options.Daemon(args, wallet.Daemon), state)
-        {
-            // A restore date this wallet could not resolve offline. The first
-            // catch-up asks the daemon and clears it.
-            PendingRestoreDate = wallet.PendingRestoreDate,
-        };
+        using WalletSession wallet = WalletCommands.OpenSession(args);
 
         DateTimeOffset started = DateTimeOffset.UtcNow;
-        ulong from = state.ScannedHeight;
+        ulong from = wallet.State.ScannedHeight;
 
-        Console.WriteLine($"scanning on {Options.Daemon(args, wallet.Daemon)}");
+        Console.WriteLine($"scanning on {wallet.Daemon}");
 
-        SyncProgress progress = await sync.CatchUpAsync(p => Report(p, from, started)).ConfigureAwait(false);
+        SyncProgress progress = await wallet.CatchUpAsync(p => Report(p, from, started)).ConfigureAwait(false);
 
         Console.WriteLine();
         Console.WriteLine($"caught up at block {progress.Height}");
 
-        Balance balance = state.BalanceAt(progress.Height == 0 ? 0 : progress.Height - 1);
+        Balance balance = wallet.Balance();
 
-        Console.WriteLine($"balance:  {WalletCommands.Format(balance.Total)} XMR");
-        Console.WriteLine($"unlocked: {WalletCommands.Format(balance.Unlocked)} XMR");
+        Console.WriteLine($"balance:  {Amounts.Format(balance.Total)} XMR");
+        Console.WriteLine($"unlocked: {Amounts.Format(balance.Unlocked)} XMR");
 
-        foreach (OwnedOutput output in state.Unspent.OrderBy(o => o.Height))
+        foreach (OwnedOutput output in wallet.State.Unspent.OrderBy(o => o.Height))
         {
-            Console.WriteLine($"  block {output.Height,9}  {WalletCommands.Format(output.Amount),20} XMR  " +
+            Console.WriteLine($"  block {output.Height,9}  {Amounts.Format(output.Amount),20} XMR  " +
                 $"({output.Subaddress.Major},{output.Subaddress.Minor})");
         }
 
         // Everything the scan found goes back into the file, so the next run starts
         // where this one stopped rather than reading the chain again.
-        WalletCommands.Save(Options.File(args), account, wallet.Seal!, wallet.Document, state.Snapshot(),
-            Options.Daemon(args, wallet.Daemon).ToString(), sync.PendingRestoreDate);
+        wallet.Save();
 
         return 0;
     }

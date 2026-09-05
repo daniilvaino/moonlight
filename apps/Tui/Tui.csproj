@@ -19,7 +19,7 @@
 
   <ItemGroup>
     <Compile Remove="Vendor\**\*.cs" />
-    <ProjectReference Include="..\..\src\Wallet\Wallet.csproj" />
+    <ProjectReference Include="..\..\src\Core\Core.csproj" />
     <ProjectReference Include="Vendor\TerminalGui\TerminalGui.csproj" />
   </ItemGroup>
 

@@ -1,3 +1,4 @@
+using Moonlight.Core;
 using Moonlight.Diagnostics;
 using Moonlight.Node;
 using Moonlight.Serialization;
@@ -31,22 +32,17 @@ internal static class Program
 
     private static void Run(string[] args)
     {
-        WalletFile opened = Load(args);
-        (Account account, WalletSnapshot saved, SubaddressIndex lookahead, _) = opened;
-
-        Uri daemon = new(Flag(args, "daemon")
-            ?? opened.Document.Settings.Nodes.FirstOrDefault()
-            ?? opened.Daemon
-            ?? Environment.GetEnvironmentVariable("MOONLIGHT_DAEMON")
-            ?? "http://127.0.0.1:18081/");
-
         // Beside the wallet, so a log is where its wallet is. --log names another
-        // path, and --debug asks for the per-batch lines as well.
+        // path, and --debug asks for the per-batch lines as well. Set before the
+        // session opens, which is the first thing that logs.
         Log.File = Flag(args, "log") ?? args[0] + ".log";
         if (args.Contains("--debug")) Log.Minimum = Level.Debug;
 
-        Log.Info("wallet", $"opened {System.IO.Path.GetFileName(args[0])} at block {saved.ScannedHeight}");
-        Log.Info("node", $"daemon {daemon}");
+        using WalletSession wallet = WalletSession.Open(
+            args[0], Flag(args, "password") ?? Prompt(), Flag(args, "daemon"));
+
+        Account account = wallet.Account;
+        WalletState state = wallet.State;
 
         SharpOSDriver driver = new();
         Application.Init(driver, new ConsoleMainLoop(driver));
@@ -55,42 +51,19 @@ internal static class Program
         // earlier keeps the colours that were in force when it was made.
         Theme.Apply();
 
-        Scanner scanner = new(account, lookahead);
-
-        WalletState state = new(scanner, saved.ScannedHeight);
-        state.Restore(saved);
-
-        string path = args[0];
-
-        Uri current = daemon;
-
         // Kept warm while the wallet is open: the loop catches up, then looks again
         // every ten seconds — the shape wallet2's api uses, which is what Feather is
         // built on. Scan now only nudges it awake.
         using CancellationTokenSource stopping = new();
 
-        ChainSync sync = new(current, state) { PendingRestoreDate = opened.PendingRestoreDate };
         CancellationTokenSource running = CancellationTokenSource.CreateLinkedTokenSource(stopping.Token);
-
-        void Save()
-        {
-            WalletDocument document = opened.Document with
-            {
-                Network = account.Network.ToString(),
-                Settings = opened.Document.Settings with { Nodes = [current.ToString()] },
-            };
-
-            Storage.Save(path, document, Storage.Encrypt(
-                account, opened.Seal!, state.ScannedHeight, lookahead, state.Snapshot(), current.ToString(),
-                document.SettingsFingerprint(), sync.PendingRestoreDate));
-        }
 
         Home home = new(account);
         History history = new();
         Send send = new();
         Receive receive = new(account);
         Coins coins = new();
-        Screens.Node node = new(daemon);
+        Screens.Node node = new(wallet.Daemon);
         Journal journal = new();
 
         // TabView adds a tab's view as it is and sizes nothing, so a page that does
@@ -157,7 +130,7 @@ internal static class Program
             status.Report(
                 Amounts.Activity(scanned, chainHeight),
                 $"{Amounts.Format(held.Total)} XMR",
-                current.Host);
+                wallet.Daemon.Host);
 
             journal.Reload();
         }
@@ -177,13 +150,13 @@ internal static class Program
 
         void StartSync()
         {
-            _ = sync.RunAsync(
+            _ = wallet.RunAsync(
                 progress => Application.MainLoop.Invoke(() =>
                 {
                     Refresh(progress.Height, progress.ChainHeight);
 
                     // Written whenever it settles, so closing the window never costs a scan.
-                    if (progress.CaughtUp) Save();
+                    if (progress.CaughtUp) wallet.Save();
                 }),
                 error => Application.MainLoop.Invoke(() => node.Report(error)),
                 cancellationToken: running.Token);
@@ -194,15 +167,10 @@ internal static class Program
         node.Changed += chosen =>
         {
             running.Cancel();
-            sync.Dispose();
-
-            current = chosen;
-            // The unresolved restore date travels to the new loop: changing node
-            // is not an answer to it.
-            sync = new ChainSync(current, state) { PendingRestoreDate = sync.PendingRestoreDate };
+            wallet.UseDaemon(chosen);
             running = CancellationTokenSource.CreateLinkedTokenSource(stopping.Token);
 
-            Save();
+            wallet.Save();
             StartSync();
         };
 
@@ -212,7 +180,7 @@ internal static class Program
         // a save that changes nothing on screen looks like a key that did nothing.
         void SaveNow()
         {
-            Save();
+            wallet.Save();
             Log.Info("wallet", $"saved at block {state.ScannedHeight}");
             Flash("saved — ready");
         }
@@ -220,7 +188,7 @@ internal static class Program
         void Quit()
         {
             stopping.Cancel();
-            Save();
+            wallet.Save();
             Application.RequestStop();
         }
 
@@ -240,7 +208,7 @@ internal static class Program
             ]),
             new MenuBarItem("_Sync",
             [
-                new MenuItem("_Scan now", "", () => sync.RefreshNow(), null, null, Screens.Keys.Scan.Binding),
+                new MenuItem("_Scan now", "", wallet.RefreshNow, null, null, Screens.Keys.Scan.Binding),
             ]),
             new MenuBarItem("_Help",
             [
@@ -322,7 +290,6 @@ internal static class Program
 
         Application.Run();
         stopping.Cancel();
-        sync.Dispose();
         Application.Shutdown();
     }
 

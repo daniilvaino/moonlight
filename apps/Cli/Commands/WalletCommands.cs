@@ -1,3 +1,4 @@
+using Moonlight.Core;
 using Moonlight.Node;
 using Moonlight.Wallet;
 
@@ -81,32 +82,29 @@ internal static class WalletCommands
 
     public static int ShowBalance(string[] args)
     {
-        WalletFile wallet = Open(args);
-        (Account account, WalletSnapshot snapshot, SubaddressIndex lookahead, _) = wallet;
+        using WalletSession wallet = OpenSession(args);
 
-        WalletState state = new(new Scanner(account, lookahead), snapshot.ScannedHeight);
-        state.Restore(snapshot);
-
-        ulong at = snapshot.ScannedHeight == 0 ? 0 : snapshot.ScannedHeight - 1;
-        Balance balance = state.BalanceAt(at);
+        ulong at = Amounts.LastScanned(wallet.State.ScannedHeight);
+        Balance balance = wallet.Balance();
 
         Console.WriteLine($"scanned to block {at}");
-        Console.WriteLine($"balance:  {Format(balance.Total)} XMR");
-        Console.WriteLine($"unlocked: {Format(balance.Unlocked)} XMR");
+        Console.WriteLine($"balance:  {Amounts.Format(balance.Total)} XMR");
+        Console.WriteLine($"unlocked: {Amounts.Format(balance.Unlocked)} XMR");
 
-        foreach (OwnedOutput output in state.Unspent.OrderBy(o => o.Height))
+        foreach (OwnedOutput output in wallet.State.Unspent.OrderBy(o => o.Height))
         {
-            Console.WriteLine($"  block {output.Height,9}  {Format(output.Amount),20} XMR  " +
+            Console.WriteLine($"  block {output.Height,9}  {Amounts.Format(output.Amount),20} XMR  " +
                 $"({output.Subaddress.Major},{output.Subaddress.Minor})");
         }
 
         return 0;
     }
 
-    /// <summary>Twelve decimal places, and a wallet that rounds them is lying.</summary>
-    public static string Format(ulong atomic)
-        => (atomic / 1_000_000_000_000m).ToString("0.############", System.Globalization.CultureInfo.InvariantCulture);
+    /// <summary>An open wallet, with its scanner, its state and its node already arranged.</summary>
+    public static WalletSession OpenSession(string[] args)
+        => WalletSession.Open(Options.File(args), Options.Password(args), Options.Optional(args, "daemon"));
 
+    /// <summary>The file alone, for the commands that only want the keys in it.</summary>
     public static WalletFile Open(string[] args)
     {
         string path = Options.File(args);

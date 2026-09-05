@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <AssemblyName>Moonlight.Core</AssemblyName>
+    <RootNamespace>Moonlight.Core</RootNamespace>
+  </PropertyGroup>
+
+  <!-- Everything an application needs, so an application needs nothing else. The
+       layers stay separate projects underneath: "dependencies point downward" is
+       checked by the compiler only while they are, and that rule has already moved
+       two things (VarInt into Crypto, Scalar and Point with it). -->
+  <ItemGroup>
+    <ProjectReference Include="..\Wallet\Wallet.csproj" />
+    <ProjectReference Include="..\Node\Node.csproj" />
+    <ProjectReference Include="..\Diagnostics\Diagnostics.csproj" />
+  </ItemGroup>
+
+</Project>

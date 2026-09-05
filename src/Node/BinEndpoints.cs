@@ -26,13 +26,13 @@ public static class BinEndpoints
     /// request names the last block ids we know so the daemon can tell us where we
     /// diverge; passing the genesis id alone asks it to start from start_height.
     /// </summary>
-    public static async Task<BlockBatch> GetBlocksAsync(
-        HttpClient http,
-        ulong startHeight,
-        IReadOnlyList<byte[]> knownBlockIds,
-        CancellationToken cancellationToken = default)
+    /// <summary>
+    /// The request body, built without sending it. Separate because the sync engine
+    /// composes requests it does not itself transmit: the socket belongs to whoever
+    /// is driving, which for a linked library is not us.
+    /// </summary>
+    public static byte[] BuildGetBlocksRequest(ulong startHeight, IReadOnlyList<byte[]> knownBlockIds)
     {
-        ArgumentNullException.ThrowIfNull(http);
         ArgumentNullException.ThrowIfNull(knownBlockIds);
 
         // block_ids is one blob of concatenated hashes, not an array of them —
@@ -41,7 +41,7 @@ public static class BinEndpoints
         byte[] locator = new byte[knownBlockIds.Count * 32];
         for (int i = 0; i < knownBlockIds.Count; i++) knownBlockIds[i].CopyTo(locator, i * 32);
 
-        byte[] request = PortableWriter.Section(w =>
+        return PortableWriter.Section(w =>
         {
             // client is not optional in the daemon's definition, even when RPC
             // payment is off: a request without it fails to parse and comes back
@@ -56,6 +56,17 @@ public static class BinEndpoints
             w.Bool("prune", true);
             w.Bool("no_miner_tx", false);
         });
+    }
+
+    public static async Task<BlockBatch> GetBlocksAsync(
+        HttpClient http,
+        ulong startHeight,
+        IReadOnlyList<byte[]> knownBlockIds,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(http);
+
+        byte[] request = BuildGetBlocksRequest(startHeight, knownBlockIds);
 
         using ByteArrayContent content = new(request);
         using HttpResponseMessage response = await http.PostAsync("getblocks.bin", content, cancellationToken)

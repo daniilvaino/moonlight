@@ -62,10 +62,7 @@ internal static class Options
 
     /// <summary>The flag wins, then the wallet's own last daemon, then the environment, then localhost.</summary>
     public static Uri Daemon(string[] args, string? remembered = null)
-        => new(Optional(args, "daemon")
-            ?? remembered
-            ?? Environment.GetEnvironmentVariable("MOONLIGHT_DAEMON")
-            ?? "http://127.0.0.1:18081/");
+        => Core.DaemonAddress.Resolve(Optional(args, "daemon"), remembered);
 
     /// <summary>
     /// A password from the command line if given, otherwise typed without echo. The
