@@ -1,0 +1,356 @@
+<Application
+    x:Class="Moonlight.Gui.Demo.App"
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    RequestedThemeVariant="Dark">
+
+  <Application.Resources>
+    <!-- Terminal: a dark instrument panel. One accent, Monero's orange, and it lands on
+         amounts and the active tab only. Everything else is a step on a cool grey ramp. -->
+    <SolidColorBrush x:Key="Deep" Color="#0B0D10" />
+    <SolidColorBrush x:Key="Ground" Color="#0E1013" />
+    <SolidColorBrush x:Key="Surface" Color="#14171B" />
+    <SolidColorBrush x:Key="Raised" Color="#191D22" />
+    <SolidColorBrush x:Key="Line" Color="#23282E" />
+    <SolidColorBrush x:Key="LineSoft" Color="#1D2228" />
+    <SolidColorBrush x:Key="Ink" Color="#D7DBE0" />
+    <SolidColorBrush x:Key="Muted" Color="#78808A" />
+    <SolidColorBrush x:Key="Dim" Color="#5E666F" />
+    <SolidColorBrush x:Key="Faint" Color="#3B434C" />
+    <SolidColorBrush x:Key="Accent" Color="#E8873A" />
+    <SolidColorBrush x:Key="AccentDim" Color="#8A6A4E" />
+
+    <!-- Output state. Carried by a glyph and a 5% row wash, never by a flat fill. -->
+    <SolidColorBrush x:Key="StateLocked" Color="#D9A441" />
+    <SolidColorBrush x:Key="StateSpent" Color="#C4574F" />
+    <SolidColorBrush x:Key="StateFrozen" Color="#6B8FC7" />
+    <SolidColorBrush x:Key="StateSelected" Color="#5FA463" />
+    <SolidColorBrush x:Key="Positive" Color="#5FA463" />
+    <SolidColorBrush x:Key="Negative" Color="#C4574F" />
+
+    <!-- IBM Plex Mono and Plex Sans Condensed are not installed here, so the stacks fall
+         through to Menlo and to Plex Sans at its regular width. Bundling the two faces as
+         assets is the only way to match the mockup exactly. -->
+    <FontFamily x:Key="MonoFont">IBM Plex Mono, Menlo, Consolas, monospace</FontFamily>
+    <FontFamily x:Key="UiFont">IBM Plex Sans, Helvetica Neue, Segoe UI, sans-serif</FontFamily>
+  </Application.Resources>
+
+  <Application.Styles>
+    <FluentTheme DensityStyle="Compact" />
+    <StyleInclude Source="avares://Avalonia.Controls.DataGrid/Themes/Fluent.xaml" />
+
+    <!-- Two type sizes and no more: 12 for everything a person reads, 10 for the
+         letterspaced micro-labels that name a column or a tab. -->
+    <Style Selector="Window">
+      <Setter Property="FontFamily" Value="{StaticResource MonoFont}" />
+      <Setter Property="FontSize" Value="12" />
+      <Setter Property="Foreground" Value="{StaticResource Ink}" />
+      <Setter Property="Background" Value="{StaticResource Ground}" />
+    </Style>
+
+    <Style Selector="TextBlock">
+      <Setter Property="FontSize" Value="12" />
+    </Style>
+    <Style Selector="TextBlock.ui">
+      <Setter Property="FontFamily" Value="{StaticResource UiFont}" />
+    </Style>
+    <Style Selector="TextBlock.mono">
+      <Setter Property="FontFamily" Value="{StaticResource MonoFont}" />
+    </Style>
+    <Style Selector="TextBlock.micro">
+      <Setter Property="FontFamily" Value="{StaticResource UiFont}" />
+      <Setter Property="FontSize" Value="10" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+      <Setter Property="LetterSpacing" Value="0.9" />
+      <Setter Property="Foreground" Value="{StaticResource Muted}" />
+    </Style>
+    <Style Selector="TextBlock.muted">
+      <Setter Property="Foreground" Value="{StaticResource Muted}" />
+    </Style>
+    <Style Selector="TextBlock.dim">
+      <Setter Property="Foreground" Value="{StaticResource Dim}" />
+    </Style>
+    <Style Selector="TextBlock.amount">
+      <Setter Property="Foreground" Value="{StaticResource Accent}" />
+      <Setter Property="FontWeight" Value="Medium" />
+    </Style>
+
+    <Style Selector="Menu">
+      <Setter Property="Height" Value="22" />
+      <Setter Property="Background" Value="{StaticResource Deep}" />
+      <Setter Property="Padding" Value="6,0" />
+    </Style>
+    <Style Selector="Menu > MenuItem">
+      <Setter Property="Padding" Value="7,2" />
+    </Style>
+    <Style Selector="MenuItem">
+      <Setter Property="FontFamily" Value="{StaticResource UiFont}" />
+      <Setter Property="FontSize" Value="12" />
+      <Setter Property="MinHeight" Value="21" />
+      <Setter Property="Padding" Value="9,3" />
+      <Setter Property="Foreground" Value="{StaticResource Muted}" />
+    </Style>
+    <Style Selector="MenuItem:selected /template/ Border#PART_LayoutRoot">
+      <Setter Property="Background" Value="{StaticResource Raised}" />
+    </Style>
+    <Style Selector="MenuItem:selected">
+      <Setter Property="Foreground" Value="{StaticResource Ink}" />
+    </Style>
+    <Style Selector="MenuFlyoutPresenter, ContextMenu">
+      <Setter Property="Background" Value="{StaticResource Raised}" />
+      <Setter Property="BorderBrush" Value="{StaticResource Line}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="0" />
+      <Setter Property="Padding" Value="0,3" />
+    </Style>
+    <Style Selector="Separator">
+      <Setter Property="Background" Value="{StaticResource Line}" />
+      <Setter Property="Height" Value="1" />
+      <Setter Property="Margin" Value="0,3" />
+    </Style>
+
+    <!-- The rail. One button per tab: icon over caption, an orange edge marks the active one.
+         The edge is a column of the content, not a border: a border on one side only would
+         push the caption off the button's centre by its own width. -->
+    <Style Selector="Button.tab">
+      <Setter Property="FontFamily" Value="{StaticResource UiFont}" />
+      <Setter Property="Height" Value="44" />
+      <Setter Property="MinHeight" Value="44" />
+      <Setter Property="HorizontalAlignment" Value="Stretch" />
+      <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+      <Setter Property="VerticalContentAlignment" Value="Center" />
+      <Setter Property="Padding" Value="0,6" />
+      <Setter Property="CornerRadius" Value="0" />
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderThickness" Value="0" />
+      <Setter Property="BorderBrush" Value="Transparent" />
+    </Style>
+    <Style Selector="Button.tab Border.rail-mark">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="VerticalAlignment" Value="Stretch" />
+      <Setter Property="Margin" Value="0,-6" />
+    </Style>
+    <Style Selector="Button.tab.active Border.rail-mark">
+      <Setter Property="Background" Value="{StaticResource Accent}" />
+    </Style>
+    <Style Selector="Button.tab:pointerover /template/ ContentPresenter">
+      <Setter Property="Background" Value="#12161A" />
+    </Style>
+    <Style Selector="Button.tab.active">
+      <Setter Property="Background" Value="{StaticResource Surface}" />
+      <Setter Property="BorderBrush" Value="{StaticResource Accent}" />
+    </Style>
+    <Style Selector="Button.tab.active:pointerover /template/ ContentPresenter">
+      <Setter Property="Background" Value="{StaticResource Surface}" />
+    </Style>
+    <Style Selector="Button.tab TextBlock">
+      <Setter Property="FontFamily" Value="{StaticResource UiFont}" />
+      <Setter Property="FontSize" Value="10" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+      <Setter Property="LetterSpacing" Value="0.6" />
+      <Setter Property="Foreground" Value="{StaticResource Dim}" />
+      <Setter Property="HorizontalAlignment" Value="Center" />
+    </Style>
+    <Style Selector="Button.tab.active TextBlock">
+      <Setter Property="Foreground" Value="{StaticResource Ink}" />
+    </Style>
+    <Style Selector="Button.tab PathIcon">
+      <Setter Property="Width" Value="15" />
+      <Setter Property="Height" Value="15" />
+      <Setter Property="HorizontalAlignment" Value="Center" />
+      <Setter Property="Foreground" Value="{StaticResource Dim}" />
+    </Style>
+    <Style Selector="Button.tab.active PathIcon">
+      <Setter Property="Foreground" Value="{StaticResource Accent}" />
+    </Style>
+
+    <Style Selector="Button">
+      <Setter Property="FontFamily" Value="{StaticResource UiFont}" />
+      <Setter Property="FontSize" Value="12" />
+      <Setter Property="MinHeight" Value="25" />
+      <Setter Property="Padding" Value="11,3" />
+      <Setter Property="CornerRadius" Value="0" />
+      <Setter Property="Background" Value="{StaticResource Raised}" />
+      <Setter Property="Foreground" Value="{StaticResource Ink}" />
+      <Setter Property="BorderBrush" Value="#2A3037" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="FontWeight" Value="Normal" />
+      <Setter Property="HorizontalContentAlignment" Value="Center" />
+      <Setter Property="VerticalContentAlignment" Value="Center" />
+    </Style>
+    <Style Selector="Button:pointerover /template/ ContentPresenter">
+      <Setter Property="Background" Value="#1F242A" />
+      <Setter Property="BorderBrush" Value="#39414A" />
+    </Style>
+    <Style Selector="Button:disabled /template/ ContentPresenter">
+      <Setter Property="Background" Value="{StaticResource Surface}" />
+      <Setter Property="Foreground" Value="{StaticResource Faint}" />
+      <Setter Property="BorderBrush" Value="{StaticResource Line}" />
+    </Style>
+    <Style Selector="Button.tool">
+      <Setter Property="Width" Value="25" />
+      <Setter Property="MinWidth" Value="25" />
+      <Setter Property="Height" Value="25" />
+      <Setter Property="Padding" Value="0" />
+      <Setter Property="Background" Value="{StaticResource Surface}" />
+      <Setter Property="BorderBrush" Value="{StaticResource Line}" />
+    </Style>
+    <Style Selector="Button.link">
+      <Setter Property="MinHeight" Value="18" />
+      <Setter Property="Padding" Value="0" />
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderThickness" Value="0" />
+      <Setter Property="Foreground" Value="{StaticResource Accent}" />
+    </Style>
+    <Style Selector="Button.link TextBlock">
+      <Setter Property="Foreground" Value="{StaticResource Accent}" />
+      <Setter Property="TextDecorations" Value="Underline" />
+    </Style>
+    <Style Selector="Button.link:pointerover /template/ ContentPresenter">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderBrush" Value="Transparent" />
+    </Style>
+    <Style Selector="Button.status-icon">
+      <Setter Property="Width" Value="20" />
+      <Setter Property="MinWidth" Value="20" />
+      <Setter Property="Height" Value="24" />
+      <Setter Property="MinHeight" Value="24" />
+      <Setter Property="Padding" Value="0" />
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderThickness" Value="0" />
+    </Style>
+    <Style Selector="Button.status-icon:pointerover /template/ ContentPresenter">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderBrush" Value="Transparent" />
+    </Style>
+    <Style Selector="Button.status-icon PathIcon">
+      <Setter Property="Width" Value="13" />
+      <Setter Property="Height" Value="13" />
+    </Style>
+
+    <Style Selector="TextBox">
+      <Setter Property="FontFamily" Value="{StaticResource MonoFont}" />
+      <Setter Property="FontSize" Value="12" />
+      <Setter Property="MinHeight" Value="25" />
+      <Setter Property="Padding" Value="8,3" />
+      <Setter Property="CornerRadius" Value="0" />
+      <Setter Property="Background" Value="{StaticResource Surface}" />
+      <Setter Property="Foreground" Value="{StaticResource Ink}" />
+      <Setter Property="CaretBrush" Value="{StaticResource Accent}" />
+      <Setter Property="SelectionBrush" Value="#33E8873A" />
+      <Setter Property="BorderBrush" Value="{StaticResource Line}" />
+      <Setter Property="BorderThickness" Value="1" />
+    </Style>
+    <Style Selector="TextBox /template/ TextBlock#PART_Watermark">
+      <Setter Property="Foreground" Value="{StaticResource Dim}" />
+    </Style>
+    <Style Selector="TextBox:pointerover /template/ Border#PART_BorderElement">
+      <Setter Property="Background" Value="{StaticResource Surface}" />
+      <Setter Property="BorderBrush" Value="#2E353D" />
+    </Style>
+    <Style Selector="TextBox:focus /template/ Border#PART_BorderElement">
+      <Setter Property="Background" Value="{StaticResource Surface}" />
+      <Setter Property="BorderBrush" Value="{StaticResource Accent}" />
+    </Style>
+
+    <Style Selector="ComboBox">
+      <Setter Property="FontFamily" Value="{StaticResource UiFont}" />
+      <Setter Property="FontSize" Value="12" />
+      <Setter Property="MinHeight" Value="25" />
+      <Setter Property="Padding" Value="8,2" />
+      <Setter Property="CornerRadius" Value="0" />
+      <Setter Property="Background" Value="{StaticResource Raised}" />
+      <Setter Property="Foreground" Value="{StaticResource Ink}" />
+      <Setter Property="BorderBrush" Value="#2A3037" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="VerticalContentAlignment" Value="Center" />
+    </Style>
+    <Style Selector="ComboBox /template/ Border#Background">
+      <Setter Property="Background" Value="{StaticResource Raised}" />
+      <Setter Property="BorderBrush" Value="#2A3037" />
+    </Style>
+    <Style Selector="ComboBoxItem">
+      <Setter Property="FontFamily" Value="{StaticResource UiFont}" />
+      <Setter Property="FontSize" Value="12" />
+      <Setter Property="MinHeight" Value="22" />
+      <Setter Property="Padding" Value="8,2" />
+      <Setter Property="CornerRadius" Value="0" />
+    </Style>
+
+    <Style Selector="CheckBox">
+      <Setter Property="FontFamily" Value="{StaticResource UiFont}" />
+      <Setter Property="FontSize" Value="12" />
+      <Setter Property="MinHeight" Value="25" />
+      <Setter Property="Foreground" Value="{StaticResource Ink}" />
+      <Setter Property="VerticalContentAlignment" Value="Center" />
+    </Style>
+
+    <!-- The table is the screen. Hairlines between rows, nothing between columns: vertical
+         rules would fight the monospaced columns, which already align themselves. -->
+    <Style Selector="DataGrid">
+      <Setter Property="FontFamily" Value="{StaticResource MonoFont}" />
+      <Setter Property="FontSize" Value="12" />
+      <Setter Property="Background" Value="{StaticResource Surface}" />
+      <Setter Property="Foreground" Value="{StaticResource Ink}" />
+      <Setter Property="BorderBrush" Value="{StaticResource Line}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="GridLinesVisibility" Value="Horizontal" />
+      <Setter Property="HorizontalGridLinesBrush" Value="{StaticResource LineSoft}" />
+      <Setter Property="RowBackground" Value="Transparent" />
+      <Setter Property="HeadersVisibility" Value="Column" />
+      <Setter Property="CanUserResizeColumns" Value="True" />
+      <Setter Property="CanUserSortColumns" Value="True" />
+      <Setter Property="RowHeight" Value="22" />
+      <Setter Property="ColumnHeaderHeight" Value="24" />
+    </Style>
+    <Style Selector="DataGridColumnHeader">
+      <Setter Property="FontFamily" Value="{StaticResource UiFont}" />
+      <Setter Property="FontSize" Value="10" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+      <Setter Property="Foreground" Value="{StaticResource Muted}" />
+      <Setter Property="Background" Value="{StaticResource Raised}" />
+      <Setter Property="BorderBrush" Value="{StaticResource Line}" />
+      <Setter Property="BorderThickness" Value="0,0,0,1" />
+      <Setter Property="Padding" Value="4,0" />
+      <Setter Property="SeparatorBrush" Value="Transparent" />
+    </Style>
+    <Style Selector="DataGridRow">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="Foreground" Value="{StaticResource Ink}" />
+    </Style>
+    <Style Selector="DataGridRow:pointerover /template/ Rectangle#BackgroundRectangle">
+      <Setter Property="Fill" Value="#1A1F24" />
+      <Setter Property="Opacity" Value="1" />
+    </Style>
+    <Style Selector="DataGridRow:selected /template/ Rectangle#BackgroundRectangle">
+      <Setter Property="Fill" Value="#20262D" />
+      <Setter Property="Opacity" Value="1" />
+    </Style>
+    <Style Selector="DataGridCell">
+      <Setter Property="Padding" Value="4,0" />
+      <Setter Property="BorderThickness" Value="0" />
+      <Setter Property="VerticalContentAlignment" Value="Center" />
+      <Setter Property="Foreground" Value="{StaticResource Ink}" />
+    </Style>
+    <Style Selector="DataGridCell:focus /template/ Grid#FocusVisual">
+      <Setter Property="IsVisible" Value="False" />
+    </Style>
+
+    <Style Selector="ScrollBar">
+      <Setter Property="Background" Value="Transparent" />
+    </Style>
+    <Style Selector="ScrollBar /template/ Thumb">
+      <Setter Property="Background" Value="#2E353D" />
+    </Style>
+
+    <Style Selector="Border.panel">
+      <Setter Property="Background" Value="{StaticResource Surface}" />
+      <Setter Property="BorderBrush" Value="{StaticResource Line}" />
+      <Setter Property="BorderThickness" Value="1" />
+    </Style>
+    <Style Selector="Border.divider">
+      <Setter Property="Height" Value="1" />
+      <Setter Property="Background" Value="{StaticResource Line}" />
+    </Style>
+  </Application.Styles>
+</Application>

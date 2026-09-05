@@ -1,0 +1,79 @@
+<UserControl
+    x:Class="Moonlight.Gui.Demo.Views.ReceiveView"
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:local="using:Moonlight.Gui.Demo"
+    x:CompileBindings="False"
+    Margin="12">
+  <Grid RowDefinitions="25,9,*">
+    <Grid ColumnDefinitions="*,9,25">
+      <TextBox x:Name="SearchBox" PlaceholderText="Search..." TextChanged="SearchChanged" />
+      <Button Grid.Column="2" Classes="tool" ToolTip.Tip="Address filters">
+        <PathIcon Width="13" Height="13" Foreground="{StaticResource Muted}" Data="M2,3.4h12v1.2H2z M2,7.4h12v1.2H2z M2,11.4h12v1.2H2z M5,1.8h1.6v4H5z M10,5.8h1.6v4h-1.6z M4,9.8h1.6v4H4z" />
+        <Button.Flyout>
+          <MenuFlyout>
+            <MenuItem x:Name="ShowUsedMenu" Header="Show used addresses" Tag="used" ToggleType="CheckBox" IsChecked="True" Click="FilterChanged" />
+            <MenuItem x:Name="ShowHiddenMenu" Header="Show hidden addresses" Tag="hidden" ToggleType="CheckBox" Click="FilterChanged" />
+            <MenuItem x:Name="ShowFullMenu" Header="Show full addresses" Tag="full" ToggleType="CheckBox" Click="FilterChanged" />
+            <MenuItem x:Name="ShowChangeMenu" Header="Show change address" Tag="change" ToggleType="CheckBox" Click="FilterChanged" />
+            <MenuItem Header="Columns">
+              <MenuItem Header="Show index" Tag="index" ToggleType="CheckBox" IsChecked="True" Click="FilterChanged" />
+              <MenuItem Header="Show labels" Tag="labels" ToggleType="CheckBox" IsChecked="True" Click="FilterChanged" />
+            </MenuItem>
+          </MenuFlyout>
+        </Button.Flyout>
+      </Button>
+    </Grid>
+
+    <Grid Grid.Row="2" ColumnDefinitions="*,9,Auto">
+      <DataGrid x:Name="Table"
+                AutoGenerateColumns="False"
+                IsReadOnly="False"
+                SelectionChanged="SelectionChanged">
+        <DataGrid.ContextMenu>
+          <ContextMenu>
+            <MenuItem Header="Copy address" Click="CopyAddress" />
+            <MenuItem Header="Copy label" Click="CopyLabel" />
+            <MenuItem Header="Edit label" Click="EditLabel" />
+            <Separator />
+            <MenuItem Header="Show transactions" Click="ShowTransactions" />
+            <MenuItem Header="Pin / unpin" Click="TogglePin" />
+            <MenuItem Header="Hide address" Click="HideAddress" />
+          </ContextMenu>
+        </DataGrid.ContextMenu>
+        <DataGrid.Columns>
+          <DataGridTemplateColumn Header="#" Width="62" SortMemberPath="Index">
+            <DataGridTemplateColumn.CellTemplate>
+              <DataTemplate>
+                <Grid ColumnDefinitions="14,*">
+                  <PathIcon Width="9" Height="9" VerticalAlignment="Center" IsVisible="{Binding IsPinned}" Foreground="{StaticResource Accent}" Data="M8,1 11,4 10,8 14,12 12,14 8,10 4,14 2,12 6,8 5,4z" />
+                  <TextBlock Grid.Column="1" VerticalAlignment="Center" Classes="mono" Foreground="{Binding Ink}" Text="{Binding IndexText}" />
+                </Grid>
+              </DataTemplate>
+            </DataGridTemplateColumn.CellTemplate>
+          </DataGridTemplateColumn>
+          <DataGridTemplateColumn Header="Address" Width="292" SortMemberPath="Address">
+            <DataGridTemplateColumn.CellTemplate>
+              <DataTemplate><TextBlock VerticalAlignment="Center" Classes="mono" Foreground="{Binding Ink}" Text="{Binding AddressText}" TextTrimming="CharacterEllipsis" /></DataTemplate>
+            </DataGridTemplateColumn.CellTemplate>
+          </DataGridTemplateColumn>
+          <DataGridTemplateColumn Header="Label" Width="*">
+            <DataGridTemplateColumn.CellTemplate><DataTemplate><TextBlock VerticalAlignment="Center" Classes="ui" Foreground="{Binding Ink}" Text="{Binding Label}" TextTrimming="CharacterEllipsis" /></DataTemplate></DataGridTemplateColumn.CellTemplate>
+            <DataGridTemplateColumn.CellEditingTemplate><DataTemplate><TextBox BorderThickness="0" Padding="0,0" Text="{Binding Label}" /></DataTemplate></DataGridTemplateColumn.CellEditingTemplate>
+          </DataGridTemplateColumn>
+          <DataGridTemplateColumn Header="Used" Width="72" SortMemberPath="IsUsed">
+            <DataGridTemplateColumn.CellTemplate><DataTemplate><PathIcon Width="10" Height="10" HorizontalAlignment="Left" VerticalAlignment="Center" IsVisible="{Binding IsUsed}" Foreground="{StaticResource Muted}" Data="M3.4,8 6.6,11.2 12.6,4.6 13.6,5.7 6.6,13.4 2.3,9.1z" /></DataTemplate></DataGridTemplateColumn.CellTemplate>
+          </DataGridTemplateColumn>
+        </DataGrid.Columns>
+      </DataGrid>
+
+      <Grid Grid.Column="2" Width="140" RowDefinitions="140,9,25,*,25">
+        <Border Background="#EDF0F2" Padding="6">
+          <local:QrCodeView x:Name="QrCode" Width="128" Height="128" />
+        </Border>
+        <Button Grid.Row="2" HorizontalAlignment="Stretch" Click="PaymentRequest">Payment Request</Button>
+        <Button x:Name="NewAddressButton" Grid.Row="4" HorizontalAlignment="Stretch" Click="NewAddress">Create new address</Button>
+      </Grid>
+    </Grid>
+  </Grid>
+</UserControl>

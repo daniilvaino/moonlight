@@ -9,10 +9,24 @@
     <IsTrimmable>false</IsTrimmable>
     <EnableAotAnalyzer>false</EnableAotAnalyzer>
     <EnableTrimAnalyzer>false</EnableTrimAnalyzer>
+    <NoWarn>$(NoWarn);CA1510;CA1846</NoWarn>
+    <ApplicationIcon>../../media/favicon.ico</ApplicationIcon>
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="Avalonia.Controls.DataGrid" />
+    <PackageReference Include="Avalonia.Desktop" />
+    <PackageReference Include="Avalonia.Themes.Fluent" />
     <ProjectReference Include="..\..\src\Wallet\Wallet.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="System.Collections.BitArray" Alias="BitArray" />
+    <Using Include="System.Globalization" />
+    <Using Include="System.Text" />
+    <Using Include="System.Text.RegularExpressions" />
+    <Compile Include="..\Tui\Vendor\QRCoder\**\*.cs"
+             Link="Vendor\QRCoder\%(RecursiveDir)%(Filename)%(Extension)" />
   </ItemGroup>
 
 </Project>

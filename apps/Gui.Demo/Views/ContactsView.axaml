@@ -1,0 +1,47 @@
+<UserControl
+    x:Class="Moonlight.Gui.Demo.Views.ContactsView"
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    x:CompileBindings="False"
+    Margin="12">
+  <Grid RowDefinitions="25,9,*">
+    <Grid ColumnDefinitions="*,9,25">
+      <TextBox x:Name="SearchBox" PlaceholderText="Search..." TextChanged="SearchChanged" />
+      <Button Grid.Column="2" Classes="tool" ToolTip.Tip="Contact options">
+        <PathIcon Width="13" Height="13" Foreground="{StaticResource Muted}" Data="M2,3.4h12v1.2H2z M2,7.4h12v1.2H2z M2,11.4h12v1.2H2z M5,1.8h1.6v4H5z M10,5.8h1.6v4h-1.6z M4,9.8h1.6v4H4z" />
+        <Button.Flyout>
+          <MenuFlyout>
+            <MenuItem Header="New contact" Click="NewContact" />
+            <MenuItem Header="Import CSV" Click="ImportCsv" />
+            <MenuItem Header="Export CSV" Click="ExportCsv" />
+            <MenuItem x:Name="ShowFullAddressesMenu" Header="Show full addresses" ToggleType="CheckBox" Click="FilterChanged" />
+          </MenuFlyout>
+        </Button.Flyout>
+      </Button>
+    </Grid>
+    <DataGrid x:Name="Table"
+              Grid.Row="2"
+              AutoGenerateColumns="False"
+              IsReadOnly="False"
+              SelectionMode="Single">
+      <DataGrid.ContextMenu>
+        <ContextMenu>
+          <MenuItem Header="Copy address" Click="CopyAddress" />
+          <MenuItem Header="Pay to" Click="PayTo" />
+          <MenuItem Header="Delete" Click="DeleteContact" />
+        </ContextMenu>
+      </DataGrid.ContextMenu>
+      <DataGrid.Columns>
+        <DataGridTemplateColumn Header="Name" Width="240">
+          <DataGridTemplateColumn.CellTemplate><DataTemplate><TextBlock VerticalAlignment="Center" Classes="ui" Text="{Binding Name}" TextTrimming="CharacterEllipsis" /></DataTemplate></DataGridTemplateColumn.CellTemplate>
+          <DataGridTemplateColumn.CellEditingTemplate><DataTemplate><TextBox BorderThickness="0" Padding="0,0" Text="{Binding Name}" /></DataTemplate></DataGridTemplateColumn.CellEditingTemplate>
+        </DataGridTemplateColumn>
+        <DataGridTemplateColumn Header="Address" Width="*" SortMemberPath="Address">
+          <DataGridTemplateColumn.CellTemplate>
+            <DataTemplate><TextBlock VerticalAlignment="Center" Classes="mono" Text="{Binding AddressText}" TextTrimming="CharacterEllipsis" /></DataTemplate>
+          </DataGridTemplateColumn.CellTemplate>
+        </DataGridTemplateColumn>
+      </DataGrid.Columns>
+    </DataGrid>
+  </Grid>
+</UserControl>

@@ -1,0 +1,85 @@
+<UserControl
+    x:Class="Moonlight.Gui.Demo.Views.HistoryView"
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    x:CompileBindings="False"
+    Margin="12">
+  <Grid RowDefinitions="25,9,Auto,*">
+    <Grid ColumnDefinitions="*,9,25">
+      <TextBox x:Name="SearchBox" PlaceholderText="Search..." TextChanged="SearchChanged" />
+      <Button Grid.Column="2" Classes="tool" ToolTip.Tip="Columns and filters">
+        <PathIcon Width="13" Height="13" Foreground="{StaticResource Muted}" Data="M2,3.4h12v1.2H2z M2,7.4h12v1.2H2z M2,11.4h12v1.2H2z M5,1.8h1.6v4H5z M10,5.8h1.6v4h-1.6z M4,9.8h1.6v4H4z" />
+        <Button.Flyout>
+          <MenuFlyout>
+            <MenuItem x:Name="DateColumnMenu" Header="Date" ToggleType="CheckBox" IsChecked="True" Tag="0" Click="ToggleColumn" />
+            <MenuItem x:Name="TransactionIdColumnMenu" Header="Txid" ToggleType="CheckBox" IsChecked="False" Tag="1" Click="ToggleColumn" />
+            <MenuItem x:Name="DescriptionColumnMenu" Header="Description" ToggleType="CheckBox" IsChecked="True" Tag="2" Click="ToggleColumn" />
+            <MenuItem x:Name="AmountColumnMenu" Header="Amount" ToggleType="CheckBox" IsChecked="True" Tag="3" Click="ToggleColumn" />
+            <Separator />
+            <MenuItem x:Name="FullTransactionIdMenu" Header="Show full txid" ToggleType="CheckBox" Click="ToggleFullTransactionIds" />
+            <Separator />
+            <MenuItem Header="Fit to window" Click="FitToWindow" />
+            <MenuItem Header="Fit to contents" Click="FitToContents" />
+            <MenuItem x:Name="ResetDefaultsMenu" Header="Reset to defaults" Click="ResetDefaults" />
+          </MenuFlyout>
+        </Button.Flyout>
+      </Button>
+    </Grid>
+
+    <!-- Shown only while the wallet is still catching up. -->
+    <Border x:Name="SyncNotice" Grid.Row="2" IsVisible="False" Margin="0,0,0,9" Padding="10,5"
+            Background="{StaticResource Surface}" BorderBrush="{StaticResource Line}" BorderThickness="1">
+      <Grid ColumnDefinitions="Auto,*,Auto,Auto" ColumnSpacing="9">
+        <PathIcon Width="12" Height="12" VerticalAlignment="Center" Foreground="#D9A441" Data="M8,1 15,14H1z M7.2,5.4h1.6v5H7.2z M7.2,11.4h1.6v1.8H7.2z" />
+        <TextBlock Grid.Column="1" VerticalAlignment="Center" Classes="muted" Text="History may appear incomplete during synchronization." />
+        <Button Grid.Column="2" Click="ShowSyncInfo">More info</Button>
+        <Button Grid.Column="3" Click="CloseSyncNotice">Close</Button>
+      </Grid>
+    </Border>
+
+    <DataGrid x:Name="Table"
+              Grid.Row="3"
+              AutoGenerateColumns="False"
+              IsReadOnly="False"
+              SelectionMode="Single"
+              Loaded="TableLoaded">
+      <DataGrid.ContextMenu>
+        <ContextMenu Opened="HistoryContextMenuOpened">
+          <MenuItem x:Name="ResendTransactionMenu" Header="Resend transaction" Click="ResendTransaction" />
+          <MenuItem x:Name="RemoveFromHistoryMenu" Header="Remove from history" Click="RemoveFromHistory" />
+          <MenuItem Header="Copy">
+            <MenuItem Header="Transaction ID" Tag="TransactionId" Click="CopyField" />
+            <MenuItem Header="Date" Tag="DateText" Click="CopyField" />
+            <MenuItem Header="Description" Tag="Description" Click="CopyField" />
+            <MenuItem Header="Amount" Tag="AmountText" Click="CopyField" />
+          </MenuItem>
+          <MenuItem Header="Show details" Click="ShowDetails" />
+          <MenuItem Header="View on block explorer" Click="ViewOnBlockExplorer" />
+          <MenuItem Header="Create Tx Proof" Click="CreateTransactionProof" />
+        </ContextMenu>
+      </DataGrid.ContextMenu>
+      <DataGrid.Columns>
+        <DataGridTemplateColumn Header="Date" Width="164" SortMemberPath="Date">
+          <DataGridTemplateColumn.CellTemplate>
+            <DataTemplate>
+              <Grid ColumnDefinitions="18,*" ToolTip.Tip="{Binding StatusToolTip}">
+                <PathIcon Width="11" Height="11" HorizontalAlignment="Left" VerticalAlignment="Center" Foreground="{Binding StatusBrush}" Data="{Binding StatusIcon}" />
+                <TextBlock Grid.Column="1" VerticalAlignment="Center" Classes="mono" Text="{Binding DateText}" />
+              </Grid>
+            </DataTemplate>
+          </DataGridTemplateColumn.CellTemplate>
+        </DataGridTemplateColumn>
+        <DataGridTextColumn Header="Txid" Width="160" Binding="{Binding TransactionIdDisplay}" IsVisible="False" IsReadOnly="True" FontFamily="{StaticResource MonoFont}" />
+        <DataGridTemplateColumn Header="Description" Width="*">
+          <DataGridTemplateColumn.CellTemplate><DataTemplate><TextBlock VerticalAlignment="Center" Classes="ui" Text="{Binding Description}" TextTrimming="CharacterEllipsis" /></DataTemplate></DataGridTemplateColumn.CellTemplate>
+          <DataGridTemplateColumn.CellEditingTemplate><DataTemplate><TextBox BorderThickness="0" Padding="0,0" Text="{Binding Description}" /></DataTemplate></DataGridTemplateColumn.CellEditingTemplate>
+        </DataGridTemplateColumn>
+        <DataGridTemplateColumn Header="Amount" Width="130" MinWidth="130" SortMemberPath="Amount">
+          <DataGridTemplateColumn.CellTemplate>
+            <DataTemplate><TextBlock HorizontalAlignment="Right" VerticalAlignment="Center" Classes="mono" FontWeight="Medium" Foreground="{Binding AmountBrush}" Text="{Binding AmountText}" /></DataTemplate>
+          </DataGridTemplateColumn.CellTemplate>
+        </DataGridTemplateColumn>
+      </DataGrid.Columns>
+    </DataGrid>
+  </Grid>
+</UserControl>

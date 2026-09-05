@@ -7,8 +7,15 @@
 
   <!-- Only tests/** and apps/Gui.Demo may consume these. -->
   <ItemGroup>
+    <PackageVersion Include="Avalonia.Desktop" Version="12.1.1" />
+    <PackageVersion Include="Avalonia.Controls.DataGrid" Version="12.1.1" />
+    <PackageVersion Include="Avalonia.Headless.XUnit" Version="12.1.1" />
+    <PackageVersion Include="Avalonia.Themes.Fluent" Version="12.1.1" />
     <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="17.12.0" />
+    <PackageVersion Include="Microsoft.Testing.Platform.MSBuild" Version="1.9.1" />
+    <PackageVersion Include="SkiaSharp" Version="3.119.4" />
     <PackageVersion Include="xunit" Version="2.9.2" />
+    <PackageVersion Include="xunit.v3" Version="3.2.2" />
     <PackageVersion Include="xunit.runner.visualstudio" Version="2.8.2" />
   </ItemGroup>
 

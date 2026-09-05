@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <AssemblyName>Moonlight.Gui.Tests</AssemblyName>
+    <RootNamespace>Moonlight.Gui.Tests</RootNamespace>
+    <OutputType>Exe</OutputType>
+    <NoWarn>$(NoWarn);CA1510</NoWarn>
+    <!-- xunit.v3 hosts its own runner; this is what lets 'dotnet test' drive it. Without it
+         the VSTest adapter finds no tests here and the suite silently runs empty. -->
+    <TestingPlatformDotnetTestSupport>true</TestingPlatformDotnetTestSupport>
+    <UseVSTest>false</UseVSTest>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Remove="Microsoft.NET.Test.Sdk" />
+    <PackageReference Remove="xunit" />
+    <PackageReference Remove="xunit.runner.visualstudio" />
+    <PackageReference Include="Avalonia.Headless.XUnit" />
+    <PackageReference Include="Microsoft.Testing.Platform.MSBuild" />
+    <PackageReference Include="SkiaSharp" />
+    <PackageReference Include="xunit.v3" />
+    <ProjectReference Include="..\..\apps\Gui.Demo\Gui.Demo.csproj" />
+  </ItemGroup>
+
+
+</Project>

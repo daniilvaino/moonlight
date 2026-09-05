@@ -71,3 +71,6 @@ result-*
 .vs/
 .idea/
 *.user
+
+# macOS finder droppings
+.DS_Store
