@@ -63,11 +63,67 @@ public sealed record WalletDocument
     [JsonPropertyName("secret")]
     public string Secret { get; init; } = "";
 
-    public byte[] ToBytes() => JsonSerializer.SerializeToUtf8Bytes(this, WalletJson.Default.WalletDocument);
+    /// <summary>
+    /// Written by hand rather than serialized.
+    /// </summary>
+    /// <remarks>
+    /// JsonSerializer needs reflection at run time even with a source-generated
+    /// context — measured: opening a wallet through the library built with
+    /// reflection disabled failed here and nowhere else. The reader and the writer
+    /// need none, and a wallet has exactly two documents to read, both with a shape
+    /// this file already states.
+    /// </remarks>
+    public byte[] ToBytes()
+    {
+        using MemoryStream stream = new();
+
+        using (Utf8JsonWriter writer = new(stream, new JsonWriterOptions { Indented = true }))
+        {
+            writer.WriteStartObject();
+            writer.WriteNumber("format", Format);
+            writer.WriteString("network", Network);
+
+            writer.WritePropertyName("settings");
+            WriteSettings(writer, Settings);
+
+            writer.WriteString("secret", Secret);
+            writer.WriteEndObject();
+        }
+
+        return stream.ToArray();
+    }
 
     public static WalletDocument Parse(ReadOnlySpan<byte> file)
-        => JsonSerializer.Deserialize(file, WalletJson.Default.WalletDocument)
-           ?? throw new FormatException("not a moonlight wallet file");
+    {
+        JsonDocument parsed;
+
+        try
+        {
+            parsed = JsonDocument.Parse(file.ToArray());
+        }
+        catch (JsonException e)
+        {
+            throw new FormatException("not a moonlight wallet file", e);
+        }
+
+        using (parsed)
+        {
+            JsonElement root = parsed.RootElement;
+
+            if (root.ValueKind != JsonValueKind.Object || !root.TryGetProperty("secret", out JsonElement secret))
+            {
+                throw new FormatException("not a moonlight wallet file");
+            }
+
+            return new WalletDocument
+            {
+                Format = root.TryGetProperty("format", out JsonElement format) ? format.GetInt32() : 0,
+                Network = root.TryGetProperty("network", out JsonElement network) ? network.GetString() ?? "Mainnet" : "Mainnet",
+                Settings = root.TryGetProperty("settings", out JsonElement settings) ? ReadSettings(settings) : new WalletSettings(),
+                Secret = secret.GetString() ?? "",
+            };
+        }
+    }
 
     /// <summary>
     /// What the settings hash to. Kept inside the blob so a wallet notices when its
@@ -75,10 +131,69 @@ public sealed record WalletDocument
     /// redirected is a privacy attack, not a formatting choice.
     /// </summary>
     public byte[] SettingsFingerprint()
-        => Crypto.Keccak.Hash(JsonSerializer.SerializeToUtf8Bytes(Settings, WalletJson.Default.WalletSettings));
-}
+    {
+        using MemoryStream stream = new();
 
-[JsonSourceGenerationOptions(WriteIndented = true, DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull)]
-[JsonSerializable(typeof(WalletDocument))]
-[JsonSerializable(typeof(WalletSettings))]
-internal sealed partial class WalletJson : JsonSerializerContext;
+        // Indented, because the serializer this replaced was configured that way and
+        // the indentation went into the hash. Writing it compactly would be tidier
+        // and would tell every wallet already on disk that it had been tampered with.
+        using (Utf8JsonWriter writer = new(stream, new JsonWriterOptions { Indented = true }))
+        {
+            WriteSettings(writer, Settings);
+        }
+
+        return Crypto.Keccak.Hash(stream.ToArray());
+    }
+
+    private static void WriteSettings(Utf8JsonWriter writer, WalletSettings settings)
+    {
+        writer.WriteStartObject();
+
+        writer.WritePropertyName("nodes");
+        writer.WriteStartArray();
+        foreach (string node in settings.Nodes) writer.WriteStringValue(node);
+        writer.WriteEndArray();
+
+        // Absent rather than null, as the serializer wrote them: a setting nobody
+        // has chosen should not appear at all.
+        if (settings.NodeSource is not null) writer.WriteString("node_source", settings.NodeSource);
+        if (settings.RateSource is not null) writer.WriteString("rate_source", settings.RateSource);
+
+        writer.WriteNumber("lookahead_accounts", settings.LookaheadAccounts);
+        writer.WriteNumber("lookahead_addresses", settings.LookaheadAddresses);
+
+        writer.WriteEndObject();
+    }
+
+    /// <summary>
+    /// Anything unknown is left alone. Old code reading a newer wallet is the
+    /// ordinary case once two versions exist.
+    /// </summary>
+    private static WalletSettings ReadSettings(JsonElement settings)
+    {
+        if (settings.ValueKind != JsonValueKind.Object) return new WalletSettings();
+
+        WalletSettings defaults = new();
+
+        return new WalletSettings
+        {
+            Nodes = settings.TryGetProperty("nodes", out JsonElement nodes) && nodes.ValueKind == JsonValueKind.Array
+                ? [.. nodes.EnumerateArray().Select(n => n.GetString()).OfType<string>()]
+                : [],
+            NodeSource = Text(settings, "node_source"),
+            RateSource = Text(settings, "rate_source"),
+            LookaheadAccounts = Number(settings, "lookahead_accounts", defaults.LookaheadAccounts),
+            LookaheadAddresses = Number(settings, "lookahead_addresses", defaults.LookaheadAddresses),
+        };
+    }
+
+    private static string? Text(JsonElement parent, string name)
+        => parent.TryGetProperty(name, out JsonElement value) && value.ValueKind == JsonValueKind.String
+            ? value.GetString()
+            : null;
+
+    private static uint Number(JsonElement parent, string name, uint fallback)
+        => parent.TryGetProperty(name, out JsonElement value) && value.TryGetUInt32(out uint number)
+            ? number
+            : fallback;
+}

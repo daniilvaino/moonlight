@@ -12,13 +12,38 @@ $sterile = @('src', 'apps/Cli', 'apps/Tui') |
 
 $violations = [System.Collections.Generic.List[string]]::new()
 
-# 1. Interop attributes anywhere in the sterile sources.
-$interop = 'DllImport|LibraryImport|SuppressGCTransition|UnmanagedCallersOnly|NativeLibrary'
+# 1. Interop that calls out of managed code, anywhere in the sterile sources.
+#
+#    Direction is the whole of the rule. DllImport, LibraryImport and NativeLibrary
+#    reach for native code we would then depend on, and that is what costs us "one
+#    artifact that runs wherever the runtime does". UnmanagedCallersOnly is the
+#    opposite: it lets somebody else call us, and adds no dependency at all — it is
+#    how src/Core.Abi offers the library to a user interface written in anything.
+#
+#    So exports are allowed, and only there: one project, so the exemption stays
+#    small enough to read.
+$interop = 'DllImport|LibraryImport|SuppressGCTransition|NativeLibrary'
+$exports = 'UnmanagedCallersOnly'
+$abi = Join-Path $root ('src/Core.Abi' -replace '/', [IO.Path]::DirectorySeparatorChar)
+
+#    Comments are skipped. The rule is about what the code does, and a file that
+#    explains why it does not call out was being reported for saying the word.
+$comment = '^\s*(//|\*|/\*)'
+
 foreach ($dir in $sterile) {
     Get-ChildItem -Path $dir -Recurse -Include *.cs -File |
         Select-String -Pattern $interop |
+        Where-Object { $_.Line -notmatch $comment } |
         ForEach-Object {
             $violations.Add("interop: $($_.Path):$($_.LineNumber) -> $($_.Line.Trim())")
+        }
+
+    Get-ChildItem -Path $dir -Recurse -Include *.cs -File |
+        Where-Object { -not $_.FullName.StartsWith($abi, [StringComparison]::Ordinal) } |
+        Select-String -Pattern $exports |
+        Where-Object { $_.Line -notmatch $comment } |
+        ForEach-Object {
+            $violations.Add("export outside src/Core.Abi: $($_.Path):$($_.LineNumber) -> $($_.Line.Trim())")
         }
 }
 

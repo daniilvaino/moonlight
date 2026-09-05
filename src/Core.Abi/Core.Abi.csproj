@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <AssemblyName>Moonlight.Core.Abi</AssemblyName>
+    <RootNamespace>Moonlight.Core.Abi</RootNamespace>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+
+    <!-- Both, and in the project rather than on the command line: NativeLib alone
+         produces an ordinary managed publish that looks like it worked. -->
+    <PublishAot>true</PublishAot>
+    <NativeLib>Shared</NativeLib>
+  </PropertyGroup>
+
+  <!-- Published as a native shared library:
+
+         dotnet publish src/Core.Abi -c Release -p:NativeLib=Shared -r <rid>
+
+       Ordinary builds leave it a managed assembly, so the tests can drive the same
+       entry points the C header describes. -->
+  <ItemGroup>
+    <ProjectReference Include="..\Core\Core.csproj" />
+  </ItemGroup>
+
+</Project>

@@ -10,6 +10,7 @@
   </Folder>
   <Folder Name="/src/">
     <Project Path="src/Crypto.Ed25519/Crypto.Ed25519.csproj" />
+    <Project Path="src/Core.Abi/Core.Abi.csproj" />
     <Project Path="src/Core/Core.csproj" />
     <Project Path="src/Crypto/Crypto.csproj" />
     <Project Path="src/Node/Node.csproj" />
