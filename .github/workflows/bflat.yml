@@ -44,6 +44,19 @@ jobs:
           sudo apt-get install -y --no-install-recommends libc++1 libc++abi1 \
             || sudo apt-get install -y --no-install-recommends libc++1-18 libc++abi1-18
 
+      # And its linker wants libtinfo.so.5, which no current Ubuntu ships. Only the
+      # arm64 build does — the x64 lld needs none — and it wants it to decide
+      # whether to colour its diagnostics, so pointing 5 at 6 is the whole of it.
+      # bflat offers no way to use a different linker, only --ldflags.
+      - name: A libtinfo the bundled linker will accept
+        run: |
+          if ! ldconfig -p | grep -q 'libtinfo\.so\.5'; then
+            six=$(ldconfig -p | awk '/libtinfo\.so\.6/ { print $NF; exit }')
+            test -n "$six" || { echo "no libtinfo of any version"; exit 1; }
+            sudo ln -sf "$six" "$(dirname "$six")/libtinfo.so.5"
+            sudo ldconfig
+          fi
+
       - name: Cache bflat
         id: cache
         uses: actions/cache@v4

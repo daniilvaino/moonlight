@@ -91,6 +91,15 @@ networking, and excluding it is what keeps `HttpClient` out of the binary.
 Those four flags are the configuration, not a choice among several: reflection off
 is the point, and the other three cost nothing a wallet uses.
 
+On Linux the release needs two things from the system that it does not carry, and
+both are reported misleadingly. Its object writer links against libc++ — the x64
+archive ships `libc++.so.1` without `libc++abi.so.1`, the arm64 archive ships
+neither — and a missing dependency of the object writer is reported as the object
+writer itself being missing. Its bundled linker on arm64 wants `libtinfo.so.5`,
+which no current Ubuntu ships; it uses terminfo only to decide whether to colour
+its output, so a symlink to `libtinfo.so.6` does. `.github/workflows/bflat.yml`
+does both.
+
 Measured on the crypto, serialization, RingCT and logging layers — 104 files, with
 nothing else rooted:
 
