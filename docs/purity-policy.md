@@ -6,6 +6,11 @@
 
 - 0 `PackageReference` — restores fully offline.
 - 0 `DllImport` / `LibraryImport` / `NativeLibrary` — managed only.
+- `UnmanagedCallersOnly` in `src/Core.Abi` and nowhere else. Direction is the whole
+  of the rule: the three above reach for native code we would then depend on, which
+  is what costs us one artifact that runs wherever the runtime does. An export only
+  lets somebody else call us and adds no dependency at all. Confined to one project
+  so the exemption stays small enough to read, and the gate checks that.
 - 0 native assets (`runtimes/*/native`) in the restore graph.
 
 Outside the gate: `tests/**`, `apps/Gui.Demo/`. Nothing sterile may reference the demo.

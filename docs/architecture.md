@@ -4,14 +4,27 @@ Pure managed C#, `net8.0`, AOT-ready. Layers depend downward only.
 
 ```
 Crypto.Ed25519   ref10 fe_*/ge_*/sc_* (vendored)
+Diagnostics      the log
 Crypto           Scalar, Point; Keccak (legacy pad), CRC32, VarInt, derivations, key images,
                  hash_to_ec/scalar, view tags, CryptoNote signatures
-Serialization    tx/block parsers, Epee
+Serialization    tx/block parsers, Merkle root, tx_extra, Epee
 RingCT           Pedersen, ECDH, CLSAG, Bulletproofs+, MultiExp
-Node             monerod JSON-RPC; /getblocks.bin (stage 2)
-Wallet           keys, accounts, addresses, scanner, decoys, fees, tx builder, storage
+Node             monerod JSON-RPC; /getblocks.bin
+Wallet           keys, accounts, addresses, subaddresses, scanner, storage
+Core             SyncEngine, WalletSession, amounts, daemon address
+   Core.Http     HttpSync, WalletConnection — the socket
+   Core.Abi      the C interface — exports only
 apps             Cli · Tui · Gui.Demo (outside the gate)
 ```
+
+Applications reference `Core.Http` and nothing else; the C interface references
+`Core`. The two know nothing about each other, which is what keeps an HTTP stack
+out of a library somebody links into their own application.
+
+The layers stay separate projects rather than folders in one assembly because
+"dependencies point downward" is checked by the compiler only while they are. That
+rule has already moved two things: `VarInt` into `Crypto`, because view tags need
+it, and `Scalar`/`Point` with it.
 
 | project | source |
 |---|---|
@@ -19,8 +32,37 @@ apps             Cli · Tui · Gui.Demo (outside the gate)
 | `Crypto` | `Vendor/MoneroRing` (Keccak and RNG swapped for ours); `Keccak.cs`, `VarInt.cs`, `ViewTag.cs`, `Scalar.cs`, `Point.cs` ours. Scalar and Point live here, not in Crypto.Ed25519: they need `sc_check`/`sc_reduce32`/`hash_to_ec`, which are Monero's additions to ref10 |
 | `Serialization` | ours; ref `monero/src/cryptonote_basic`, Epee cross-checked vs monero-oxide |
 | `RingCT` | hand port of `src/ringct/*.cc`; CLSAG first in C#; BP+ transcript verified step by step vs monero-oxide |
-| `Node` | ours. JSON-RPC over `HttpClient`, with source-generated `System.Text.Json` — reflection-based JSON does not survive trimming or AOT |
+| `Node` | ours. JSON-RPC over `HttpClient`; `DaemonClient` still uses source-generated `System.Text.Json`, which is the last generator in the tree |
 | `Wallet` | `Vendor/MoneroSharp` (English word list only); rest ours |
+| `Core` | ours. The engine reads JSON by hand — measured, `JsonSerializer` throws with reflection disabled where `Utf8JsonReader` does not |
+
+## Following the chain
+
+`SyncEngine` does no I/O. Ask it for the next request, send that however you like,
+hand back the answer:
+
+```csharp
+SyncRequest? Next();
+void Supply(ReadOnlySpan<byte> answer);
+bool Failed(Exception error);
+```
+
+The transport belongs to the host. A wallet linked into a Swift or Rust application
+should use that application's networking — its trust store, its proxy settings, its
+idea of a timeout — and once the socket is the host's, the loop may as well be too:
+a thread of ours whose only job is to call back into the host would be a thread for
+nothing. It is not async for the same reason: there is nothing to await when the
+caller does the waiting, and an interface with no `Task` in it crosses a C ABI
+unchanged.
+
+What stays in the engine is everything that is actually hard and worth not writing
+twice: the block locator, the batching, the order blocks must arrive in, settling
+an offline restore date, and the rule that a batch which does not advance means
+stop rather than ask again.
+
+`HttpSync` is that engine driven over `HttpClient`, so the applications await what
+they always awaited. Both faces move the same engine — the session owns it, and a
+date settled through the C interface is a date the next save writes down.
 
 ## The wallet file
 

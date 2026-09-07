@@ -80,8 +80,14 @@ in code. The plan is to run them and capture the intermediate values.
 | `Crypto.Tests` | harness + grammar over all 5945 lines; Keccak; VarInt; 5539 replayed vectors, generators included; round-trip and typed-API tests on top (61) |
 | `Serialization.Tests` | corpus integrity; TxParser, TxHash and TxExtra against 5 real transactions; MerkleTree and BlockParser against block 202612; Epee against monero's own byte vectors (42) |
 | `RingCT.Tests` | Pedersen, ECDH, CLSAG sign/verify, two real monero-made CLSAG signatures verified against their rings, the real Bulletproof+ range proof from the same transaction, and our own prover checked against that verifier (61) |
-| `Wallet.Tests` | Base58, addresses, mnemonic, key derivation, subaddresses and restore height — anchored on the seed monero's own functional tests restore; plus the scanner finding the change output of a real mainnet transaction, and balance, locking and spend detection; the same output found again in a pruned transaction; the pending restore date and the rules for resolving it (108) |
+| `Wallet.Tests` | Base58, addresses, mnemonic, key derivation, subaddresses and restore height — anchored on the seed monero's own functional tests restore; the scanner finding the change output of a real mainnet transaction, and the same output again in a pruned one; balance, locking and spend detection; the sync engine driven by hand with no socket open, settling a restore date included; the C interface called the way C calls it; the settings fingerprint pinned to a wallet on disk (151) |
 | `Integration` | DaemonClient and getblocks.bin against canned monerod answers, both the full and the pruned response shape, no network (14); plus chain tests that run only when `MOONLIGHT_DAEMON` names a node (3) |
+| `Gui.Tests` | the demo's controls driven for real, a type-ramp guard measured off the laid-out tree, and a pixel baseline that skips outside macOS and in CI, where the interface fonts are not installed (13) |
+
+Nothing yet drives the native builds. The library and both applications have been
+built and run by hand through NativeAOT and bflat, but only the managed build is in
+CI, and the exported C symbols are checked by nothing at all — a renamed
+`EntryPoint` would leave every test green and every foreign caller broken.
 
 The corpus tests assert the vector files themselves are intact. That is not busywork: a
 truncated or reformatted vector file is the one failure mode that makes every later test

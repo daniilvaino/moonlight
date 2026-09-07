@@ -7,8 +7,23 @@ modes are one build per operating system and architecture.
 | mode | command | produces | per platform? |
 |---|---|---|---|
 | managed | `dotnet build` | `Moonlight.Core.dll` and the applications | no — one assembly runs anywhere the runtime does |
-| NativeAOT | `dotnet publish -p:PublishAot=true -r <rid>` | the two applications, and `Core.Abi` as a shared library | yes |
-| bflat | `bflat build … --stdlib DotNet` | a small shared library | yes |
+| NativeAOT | `dotnet publish -r <rid>` | the two applications, and `Core.Abi` as a shared library | yes |
+| bflat | `bflat build … --stdlib DotNet` | the same three, smaller | yes |
+
+Measured, and each one run rather than only built:
+
+| | NativeAOT | bflat |
+|---|---|---|
+| `Core.Abi` | 2726 KB | 1900 KB |
+| `moonlight` (Cli) | — | 5147 KB |
+| `moonlight-tui` | — | 5521 KB |
+
+The library was driven through a full scan from Python over ctypes — 3000 blocks,
+152 exchanges, no .NET in the process. The two bflat binaries restored a wallet,
+scanned to the tip and saved.
+
+`apps/Gui.Demo` is managed only: it is an Avalonia application, and outside the
+purity gate on purpose.
 
 ## Managed
 
@@ -68,11 +83,27 @@ The whole library including `Core.Abi` comes to 2109 KB, against 2726 KB for the
 same sources through NativeAOT. Both were driven through a full scan from Python
 over ctypes, so the difference is size rather than behaviour.
 
-Two things to know before using it.
+Three things to know before using it.
 
 **No MSBuild means no implicit usings.** A `GlobalUsings.cs` holding what
 `<ImplicitUsings>enable</ImplicitUsings>` would have generated has to be passed
-alongside the sources.
+alongside the sources. For the terminal application that file also needs the
+aliases `TerminalGui.props` declares — `BitArray`, `Encoding`.
+
+**bflat's own compiler is older than our language.** It is Roslyn from the .NET 8
+era, and the vendored Terminal.Gui uses C# 14 extension members, which it reports
+as a stray brace. The language moved but the IL did not: `net8.0` is still `net8.0`.
+So a project that outruns bflat's compiler is built with our SDK and handed over as
+an assembly —
+
+```sh
+dotnet build apps/Tui/Vendor/TerminalGui -c Release
+bflat build <sources> -r .../Moonlight.Vendor.TerminalGui.dll -o moonlight-tui
+```
+
+— because `bflat build` takes `-r, --reference`, and its compiler back end reads IL
+like any other. This works for anything that hits a language-version wall, not just
+this one project.
 
 **No source generators.** `JsonSerializerContext` does not exist under bflat, and
 it would not help anyway: measured, `JsonSerializer` throws with reflection
