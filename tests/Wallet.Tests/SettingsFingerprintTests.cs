@@ -1,4 +1,5 @@
 using System.Text;
+using Moonlight.Crypto;
 using Moonlight.Wallet;
 using Xunit;
 
@@ -8,38 +9,62 @@ namespace Moonlight.Wallet.Tests;
 /// The settings fingerprint, pinned to actual bytes.
 /// </summary>
 /// <remarks>
-/// It is a hash of the settings as text, so any change to how that text is written
-/// changes it — and a changed fingerprint tells every wallet already on disk that
-/// its settings were altered by somebody else, which is the one thing this is meant
-/// to detect. Replacing the serializer with a hand-written writer did exactly that,
-/// and it went unnoticed until three wallets written the day before were opened:
-/// the serializer had been configured to indent, and the indentation was in the
-/// hash.
+/// It is a hash of the settings as text, so anything that changes how that text is
+/// written changes it — and a changed fingerprint tells a wallet its settings were
+/// altered by somebody else, which is the one thing this is meant to mean.
+///
+/// It has been wrong twice. Replacing the serializer with a hand-written writer
+/// changed the bytes, and three wallets written the day before started reporting
+/// themselves as tampered with. The fix was to keep the indentation the serializer
+/// had used — and that turned out to be the second bug rather than a fix, because
+/// an indented Utf8JsonWriter breaks lines with Environment.NewLine before .NET 9.
+/// The hash was one value on Windows and another everywhere else, so a wallet
+/// carried between them accused whoever carried it. CI on Linux and macOS is what
+/// found it; every run on Windows had been green.
 /// </remarks>
 public class SettingsFingerprintTests
 {
-    /// <summary>
-    /// What these settings hashed to when the source-generated serializer wrote
-    /// them. Taken from a wallet file on disk rather than from a guess about
-    /// whitespace — the first attempt at this test guessed, and guessed wrong while
-    /// the code was right.
-    /// </summary>
-    private const string Recorded = "03649608B34FC495547AC2D52A9BE57E2BE7D1BD651F388A9BFA4829B9E62E28";
+    private const string Recorded = "F8CD23BE1AF4F5412183D7D383782AFB49E441F8A792CBD087702370614ED84B";
+
+    private static WalletDocument Sample => new()
+    {
+        Settings = new WalletSettings
+        {
+            Nodes = ["http://127.0.0.1:28081/"],
+            LookaheadAccounts = 1,
+            LookaheadAddresses = 3,
+        },
+    };
 
     [Fact]
-    public void IsWhatWalletsOnDiskWereWrittenWith()
-    {
-        WalletDocument document = new()
-        {
-            Settings = new WalletSettings
-            {
-                Nodes = ["http://127.0.0.1:28081/"],
-                LookaheadAccounts = 1,
-                LookaheadAddresses = 3,
-            },
-        };
+    public void IsTheSameNumberEverywhere()
+        => Assert.Equal(Recorded, Convert.ToHexString(Sample.SettingsFingerprint()));
 
-        Assert.Equal(Recorded, Convert.ToHexString(document.SettingsFingerprint()));
+    /// <summary>
+    /// The property behind that number, and the one a single machine cannot check by
+    /// running the test: the hashed text carries no line break at all.
+    /// </summary>
+    /// <remarks>
+    /// It used to. Before .NET 9 an indented Utf8JsonWriter breaks lines with
+    /// Environment.NewLine, so the same settings hashed to one value on Windows and
+    /// another everywhere else — and a wallet carried between them reported that its
+    /// settings had been changed by somebody, which is the one thing this is meant to
+    /// mean. Caught by CI on Linux and macOS while three machines' worth of Windows
+    /// runs said everything was fine.
+    /// </remarks>
+    [Fact]
+    public void HashesCompactTextWithNoLineBreakInIt()
+    {
+        // Spelled out here rather than taken from the code, so the test says what
+        // the shape is instead of agreeing with whatever the writer happens to do.
+        // There is no newline in it, which is the property that makes the number
+        // above the same on every machine.
+        const string Compact =
+            """{"nodes":["http://127.0.0.1:28081/"],"lookahead_accounts":1,"lookahead_addresses":3}""";
+
+        Assert.Equal(
+            Keccak.Hash(Encoding.UTF8.GetBytes(Compact)),
+            Sample.SettingsFingerprint());
     }
 
     /// <summary>Absent, not null: a setting nobody has chosen does not appear at all.</summary>

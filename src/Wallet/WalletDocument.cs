@@ -47,7 +47,14 @@ public sealed record WalletDocument
     /// compared against a file of the same shape — otherwise every wallet written
     /// before the new field would report itself as tampered with.
     /// </summary>
-    public const int CurrentFormat = 2;
+    /// <remarks>
+    /// 3 changes no field. It marks the point where the fingerprint stopped being
+    /// hashed over indented text, which carried Environment.NewLine into it and so
+    /// differed between Windows and everywhere else. Wallets written as 2 keep their
+    /// old hash and are simply not compared, which is what this number is for; the
+    /// next save writes them as 3.
+    /// </remarks>
+    public const int CurrentFormat = 3;
 
     [JsonPropertyName("format")]
     public int Format { get; init; } = CurrentFormat;
@@ -134,13 +141,12 @@ public sealed record WalletDocument
     {
         using MemoryStream stream = new();
 
-        // Indented, because the serializer this replaced was configured that way and
-        // the indentation went into the hash. Writing it compactly would be tidier
-        // and would tell every wallet already on disk that it had been tampered with.
-        using (Utf8JsonWriter writer = new(stream, new JsonWriterOptions { Indented = true }))
-        {
-            WriteSettings(writer, Settings);
-        }
+        // Compact, and that is the whole point: an indented writer breaks lines with
+        // Environment.NewLine before .NET 9, so the same settings hashed to one value
+        // on Windows and another everywhere else. A wallet written on one and opened
+        // on the other reported that its settings had been changed by somebody —
+        // which is the one thing this is meant to mean.
+        using (Utf8JsonWriter writer = new(stream)) WriteSettings(writer, Settings);
 
         return Crypto.Keccak.Hash(stream.ToArray());
     }

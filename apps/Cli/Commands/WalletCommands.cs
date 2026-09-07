@@ -138,6 +138,9 @@ internal static class WalletCommands
     {
         WalletDocument updated = document with
         {
+            // Written in this shape, so it says so: a document that keeps an older
+            // number carries a fingerprint nothing will ever compare.
+            Format = WalletDocument.CurrentFormat,
             Network = account.Network.ToString(),
             Settings = daemon is null ? document.Settings : document.Settings with { Nodes = [daemon] },
         };

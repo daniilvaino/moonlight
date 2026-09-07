@@ -40,7 +40,7 @@ public class WalletDocumentTests
         using JsonDocument plain = JsonDocument.Parse(file);
         JsonElement settings = plain.RootElement.GetProperty("settings");
 
-        Assert.Equal(2, plain.RootElement.GetProperty("format").GetInt32());
+        Assert.Equal(WalletDocument.CurrentFormat, plain.RootElement.GetProperty("format").GetInt32());
         Assert.Equal(2, settings.GetProperty("nodes").GetArrayLength());
         Assert.Equal("https://prices.example/xmr", settings.GetProperty("rate_source").GetString());
         Assert.Equal(3, settings.GetProperty("lookahead_accounts").GetInt32());

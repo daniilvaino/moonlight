@@ -110,6 +110,46 @@ public sealed class WalletSessionTests : IDisposable
         Assert.Equal(date, WalletSession.Open(path, "p").File.PendingRestoreDate);
     }
 
+    /// <summary>
+    /// A save writes the current shape, and the fingerprint in it is compared again
+    /// on the next open.
+    /// </summary>
+    /// <remarks>
+    /// Carrying the opened document's version forward looks harmless and is not: a
+    /// wallet written before the current format keeps a fingerprint that is never
+    /// compared, so the check for settings altered by somebody else stays switched
+    /// off for the rest of that wallet's life, silently.
+    /// </remarks>
+    [Fact]
+    public void SavingBringsAnOlderWalletUpToTheCurrentFormat()
+    {
+        Account account = Account.Create();
+        string path = Path.Combine(directory, "old.keys");
+
+        // As a previous version wrote it: its own number, and a fingerprint hashed
+        // whichever way that version hashed.
+        WalletDocument older = new()
+        {
+            Format = WalletDocument.CurrentFormat - 1,
+            Settings = new WalletSettings { LookaheadAccounts = 1, LookaheadAddresses = 3 },
+        };
+
+        Storage.Save(path, older, Storage.Encrypt(
+            account, Storage.Seal("p", Fast), 10, older.Settings.Lookahead, null, null, [.. new byte[32]]));
+
+        WalletSession opened = WalletSession.Open(path, "p");
+
+        Assert.False(opened.File.SettingsChangedOutside);
+        Assert.Equal(WalletDocument.CurrentFormat - 1, opened.File.Document.Format);
+
+        opened.Save();
+
+        WalletSession again = WalletSession.Open(path, "p");
+
+        Assert.Equal(WalletDocument.CurrentFormat, again.File.Document.Format);
+        Assert.False(again.File.SettingsChangedOutside);
+    }
+
     [Fact]
     public void RefusesAWalletThatIsNotThere()
         => Assert.Throws<IOException>(

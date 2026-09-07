@@ -65,7 +65,6 @@ apps/
 tests/               outside the gate
   vectors/           the corpus (8.3 MB)
 media/               brand assets
-work/                git-ignored scratch for donor clones
 ```
 
 ```mermaid

@@ -108,6 +108,11 @@ public sealed class WalletSession
     {
         WalletDocument document = File.Document with
         {
+            // Whatever shape it was opened in, it is being written in this one. Left
+            // to carry the old number, a wallet would keep a fingerprint nothing ever
+            // compares — the tamper check quietly switched off for the rest of its
+            // life, with nothing to show for it.
+            Format = WalletDocument.CurrentFormat,
             Network = Account.Network.ToString(),
             Settings = File.Document.Settings with { Nodes = [Daemon.ToString()] },
         };
