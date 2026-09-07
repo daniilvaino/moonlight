@@ -60,6 +60,10 @@ dotnet publish src/Core.Abi -c Release -r linux-x64
 command line, because `NativeLib` alone quietly produces an ordinary managed
 publish that looks like it worked.
 
+The `-r` is required here and not for the applications. Publishing an application
+with `PublishAot` infers the host's identifier; publishing a shared library refuses
+to, with `RuntimeIdentifier is required for native compilation`.
+
 On Windows the link step shells out to `vswhere.exe` by name. It is installed at
 `C:\Program Files (x86)\Microsoft Visual Studio\Installer`, which is not on PATH in
 an ordinary shell, and without it the build fails at the last step with MSB3073 —

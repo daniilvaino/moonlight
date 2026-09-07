@@ -25,7 +25,8 @@ dotnet build Moonlight.slnx
 dotnet test  Moonlight.slnx
 dotnet publish apps/Cli     -c Release  # NativeAOT
 dotnet publish apps/Tui     -c Release  # NativeAOT
-dotnet publish src/Core.Abi -c Release  # NativeAOT, as a shared library
+dotnet publish src/Core.Abi -c Release -r linux-x64   # a shared library, and it
+                                                      # needs the identifier given
 pwsh tools/purity-gate.ps1
 bflat build ...                         # no SDK, no MSBuild, smaller — docs/build-modes.md
 ```

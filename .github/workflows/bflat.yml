@@ -23,6 +23,12 @@ jobs:
     env:
       BFLAT_VERSION: 8.0.2
 
+      # bflat's object writer is a native library that links against libc++, and the
+      # release carries its own copy in lib64 rather than expecting one installed.
+      # Without this the compiler reports the object writer as missing, which reads
+      # like a broken download and is not.
+      LD_LIBRARY_PATH: ${{ github.workspace }}/bflat:${{ github.workspace }}/bflat/lib64
+
     steps:
       - uses: actions/checkout@v4
 
@@ -44,6 +50,14 @@ jobs:
           curl -sSL -o bflat.tar.gz \
             "https://github.com/bflattened/bflat/releases/download/v${BFLAT_VERSION}/bflat-${BFLAT_VERSION}-linux-glibc-${{ matrix.arch }}.tar.gz"
           tar -xzf bflat.tar.gz -C bflat
+
+      # The archive is flat, so the compiler is bflat/bflat. Restoring from cache
+      # does not always keep the mode bit, and a compiler that is merely not
+      # executable fails in a way that reads like a missing download.
+      - name: Check bflat is there
+        run: |
+          chmod +x bflat/bflat
+          ./bflat/bflat --info | head -3
 
       # What ImplicitUsings would have generated, and the aliases TerminalGui.props
       # declares. bflat runs no MSBuild, so nothing generates them.

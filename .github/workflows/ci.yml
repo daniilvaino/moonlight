@@ -18,7 +18,18 @@ jobs:
         # arm64 is not a nicety: macos-latest is Apple silicon and ubuntu-24.04-arm
         # covers the linux-arm64 the flake claims to support, which nothing built
         # before this.
-        os: [ubuntu-latest, ubuntu-24.04-arm, windows-latest, macos-latest]
+        #
+        # The identifier is spelled out because a shared library needs one given:
+        # publishing an application infers it, publishing a NativeLib refuses to.
+        include:
+          - os: ubuntu-latest
+            rid: linux-x64
+          - os: ubuntu-24.04-arm
+            rid: linux-arm64
+          - os: windows-latest
+            rid: win-x64
+          - os: macos-latest
+            rid: osx-arm64
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -40,7 +51,7 @@ jobs:
         run: |
           dotnet publish apps/Cli -c Release
           dotnet publish apps/Tui -c Release
-          dotnet publish src/Core.Abi -c Release
+          dotnet publish src/Core.Abi -c Release -r ${{ matrix.rid }}
 
       # The managed tests exercise the room behind the door; only this opens the
       # door. It loads the shared library that was just built, looks up every
