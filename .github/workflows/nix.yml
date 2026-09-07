@@ -10,7 +10,10 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest]
+        # One runner per system the flake claims: x86_64-linux, aarch64-linux and
+        # aarch64-darwin. Claiming one that nothing builds is how a platform stays
+        # broken without anybody hearing about it.
+        os: [ubuntu-latest, ubuntu-24.04-arm, macos-latest]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4

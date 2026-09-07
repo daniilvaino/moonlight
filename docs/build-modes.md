@@ -18,12 +18,26 @@ Measured on `win-x64`, and each one run rather than only built:
 | `moonlight` (Cli) | 6868 KB | 5147 KB |
 | `moonlight-tui` | 7420 KB | 5521 KB |
 
-The library was driven through a full scan from Python over ctypes — 3000 blocks,
-152 exchanges, no .NET in the process. The two bflat binaries restored a wallet,
-scanned to the tip and saved.
-
 `apps/Gui.Demo` is managed only: it is an Avalonia application, and outside the
 purity gate on purpose.
+
+## What checks what
+
+| | runners |
+|---|---|
+| managed build, the whole suite, NativeAOT applications | `ci` — linux x64 and arm64, windows x64, macOS arm64 |
+| the C interface, against the artifact just built | `ci`, every runner |
+| the same, plus all three bflat artifacts | `bflat` — linux x64 and arm64 |
+| a hermetic build of the applications, the suite, the gate | `nix` — one runner per system the flake claims |
+| the purity gate, and that a sterile restore works with no network | `purity-gate` |
+
+`tests/Abi.Native` is the one thing that opens the door rather than testing the
+room behind it. It loads the shared library that was just built, looks up every
+function `moonlight.h` declares, and drives a sweep through them. The managed tests
+cannot see a renamed entry point or a header that has drifted from the exports —
+both leave them green and every foreign caller broken. It is not run by
+`dotnet test`, because it needs a published library to exist and would otherwise
+pass by finding nothing.
 
 ## Managed
 

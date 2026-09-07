@@ -20,6 +20,7 @@
     <Project Path="src/Wallet/Wallet.csproj" />
   </Folder>
   <Folder Name="/tests/">
+    <Project Path="tests/Abi.Native/Abi.Native.csproj" />
     <Project Path="tests/Crypto.Tests/Crypto.Tests.csproj" />
     <Project Path="tests/Gui.Tests/Gui.Tests.csproj" />
     <Project Path="tests/Integration/Integration.csproj" />

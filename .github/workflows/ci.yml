@@ -15,7 +15,10 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
+        # arm64 is not a nicety: macos-latest is Apple silicon and ubuntu-24.04-arm
+        # covers the linux-arm64 the flake claims to support, which nothing built
+        # before this.
+        os: [ubuntu-latest, ubuntu-24.04-arm, windows-latest, macos-latest]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -37,3 +40,18 @@ jobs:
         run: |
           dotnet publish apps/Cli -c Release
           dotnet publish apps/Tui -c Release
+          dotnet publish src/Core.Abi -c Release
+
+      # The managed tests exercise the room behind the door; only this opens the
+      # door. It loads the shared library that was just built, looks up every
+      # function moonlight.h declares, and drives a sweep through them — so a
+      # renamed entry point or a header that has drifted fails here rather than in
+      # somebody else's application.
+      - name: Check the C interface
+        shell: bash
+        run: |
+          library=$(find src/Core.Abi/bin/Release -path '*/native/*' \
+            \( -name 'Moonlight.Core.Abi.dll' -o -name 'Moonlight.Core.Abi.so' -o -name 'Moonlight.Core.Abi.dylib' \) \
+            | head -1)
+          test -n "$library" || { echo "no shared library was published"; exit 1; }
+          dotnet run --project tests/Abi.Native -c Release -- "$library" src/Core.Abi/moonlight.h

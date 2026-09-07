@@ -84,10 +84,12 @@ in code. The plan is to run them and capture the intermediate values.
 | `Integration` | DaemonClient and getblocks.bin against canned monerod answers, both the full and the pruned response shape, no network (14); plus chain tests that run only when `MOONLIGHT_DAEMON` names a node (3) |
 | `Gui.Tests` | the demo's controls driven for real, a type-ramp guard measured off the laid-out tree, and a pixel baseline that skips outside macOS and in CI, where the interface fonts are not installed (13) |
 
-Nothing yet drives the native builds. The library and both applications have been
-built and run by hand through NativeAOT and bflat, but only the managed build is in
-CI, and the exported C symbols are checked by nothing at all — a renamed
-`EntryPoint` would leave every test green and every foreign caller broken.
+| `Abi.Native` | not a test project: it loads the shared library that was just built, looks up every function `moonlight.h` declares, and drives a sweep through them. Run as a CI step after publishing, because it needs the artifact to exist — under `dotnet test` it would pass by finding nothing |
+
+Both native modes are built in CI now, on linux x64 and arm64 as well as the
+platforms the managed build already covered. What is still not exercised anywhere:
+the three chain tests, which need `MOONLIGHT_DAEMON` pointed at a node, and the
+visual baseline, which needs fonts a runner does not have.
 
 The corpus tests assert the vector files themselves are intact. That is not busywork: a
 truncated or reformatted vector file is the one failure mode that makes every later test

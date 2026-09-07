@@ -1,0 +1,32 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <AssemblyName>moonlight-abi-check</AssemblyName>
+    <RootNamespace>Moonlight.Abi.Native</RootNamespace>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+
+    <!-- Under tests/ but not a test project: the shared props would otherwise bring
+         in the test SDK, which generates an entry point of its own. -->
+    <IsTestProject>false</IsTestProject>
+    <GenerateProgramFile>false</GenerateProgramFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Remove="Microsoft.NET.Test.Sdk" />
+    <PackageReference Remove="xunit" />
+    <PackageReference Remove="xunit.runner.visualstudio" />
+  </ItemGroup>
+
+  <!-- Outside the purity gate, and it has to be: this loads a native library and
+       calls into it, which is exactly what the sterile tree forbids. It is checking
+       the artifact rather than being part of it.
+
+       Not a test project. It needs a published shared library to exist first, so it
+       is run as a step rather than by `dotnet test`, which would otherwise report it
+       as passing on a machine where nothing was published. -->
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Core\Core.csproj" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,105 @@
+name: bflat
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# The third build mode. Without this it exists only in a document, and a document
+# is not a build: bflat has its own compiler, so anything the language does that it
+# has not caught up with breaks here and nowhere else.
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            arch: x64
+          - os: ubuntu-24.04-arm
+            arch: arm64
+    runs-on: ${{ matrix.os }}
+
+    env:
+      BFLAT_VERSION: 8.0.2
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Cache bflat
+        id: cache
+        uses: actions/cache@v4
+        with:
+          path: bflat
+          key: bflat-${{ env.BFLAT_VERSION }}-linux-${{ matrix.arch }}
+
+      - name: Fetch bflat
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p bflat
+          curl -sSL -o bflat.tar.gz \
+            "https://github.com/bflattened/bflat/releases/download/v${BFLAT_VERSION}/bflat-${BFLAT_VERSION}-linux-glibc-${{ matrix.arch }}.tar.gz"
+          tar -xzf bflat.tar.gz -C bflat
+
+      # What ImplicitUsings would have generated, and the aliases TerminalGui.props
+      # declares. bflat runs no MSBuild, so nothing generates them.
+      - name: Global usings
+        run: |
+          cat > GlobalUsings.cs <<'EOF'
+          global using System;
+          global using System.Collections.Generic;
+          global using System.IO;
+          global using System.Linq;
+          global using System.Net.Http;
+          global using System.Threading;
+          global using System.Threading.Tasks;
+          global using BitArray = System.Collections.BitArray;
+          global using System.Globalization;
+          global using System.Text;
+          global using System.Text.RegularExpressions;
+          EOF
+
+      - name: The linkable library
+        run: |
+          ./bflat/bflat build \
+            $(find src -name '*.cs' -not -path '*/obj/*' -not -path '*/bin/*' -not -path '*/Core.Http/*') \
+            GlobalUsings.cs \
+            --target Shared -o libmoonlight.so \
+            --stdlib DotNet --no-reflection --no-globalization --no-stacktrace-data
+          ls -l libmoonlight.so
+
+      # The same check the NativeAOT build gets, against the bflat artifact: the two
+      # are different compilers and only one of them is exercised by anything else.
+      - name: Check the C interface
+        run: dotnet run --project tests/Abi.Native -c Release -- libmoonlight.so src/Core.Abi/moonlight.h
+
+      - name: The command line
+        run: |
+          ./bflat/bflat build \
+            $(find src apps/Cli -name '*.cs' -not -path '*/obj/*' -not -path '*/bin/*' -not -path '*/Core.Abi/*') \
+            GlobalUsings.cs \
+            -o moonlight \
+            --stdlib DotNet --no-reflection --no-globalization --no-stacktrace-data
+          ./moonlight version
+
+      # Terminal.Gui uses C# 14 extension members, which bflat's own compiler is too
+      # old to parse. The language moved and the IL did not, so it is built with our
+      # SDK and handed over as an assembly.
+      - name: The terminal interface
+        run: |
+          dotnet build apps/Tui/Vendor/TerminalGui -c Release
+          ./bflat/bflat build \
+            $(find src apps/Tui -name '*.cs' -not -path '*/obj/*' -not -path '*/bin/*' \
+                   -not -path '*/Core.Abi/*' -not -path 'apps/Tui/Vendor/*') \
+            GlobalUsings.cs \
+            -r apps/Tui/Vendor/TerminalGui/bin/Release/net8.0/Moonlight.Vendor.TerminalGui.dll \
+            -o moonlight-tui \
+            --stdlib DotNet --no-reflection --no-globalization --no-stacktrace-data
+          ls -l moonlight-tui
+
+      - name: Sizes
+        run: ls -l libmoonlight.so moonlight moonlight-tui

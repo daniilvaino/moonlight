@@ -153,7 +153,7 @@ Steal what is stealable; port what is not. Every `Vendor/` tree carries a `VENDO
 3. ~~Node: monerod JSON-RPC and `/getblocks.bin`.~~
 4. ~~RingCT: Pedersen, ECDH, CLSAG, Bulletproofs+ both ways — verification checked against proofs monero made.~~ Pippenger for the multiexp remains.
 5. ~~Wallet: seeds, addresses, subaddresses, scanner, balance, encrypted storage.~~ Decoys, fees and the transaction builder remain.
-6. ~~One library the applications share, following the chain without owning the socket, offered to C as a linkable artifact.~~ Errors still cross the C boundary as a bare code with no message, and nothing in CI builds or runs the native artifacts.
+6. ~~One library the applications share, following the chain without owning the socket, offered to C as a linkable artifact — with CI building all three modes and checking the exported symbols against the header.~~ Errors still cross the C boundary as a bare code with no message.
 7. Spending: decoy selection, fee and weight, the transaction builder.
 8. Integration: stagenet end to end, plus our own verify-chain over real blocks.
 
