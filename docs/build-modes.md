@@ -92,13 +92,20 @@ Those four flags are the configuration, not a choice among several: reflection o
 is the point, and the other three cost nothing a wallet uses.
 
 On Linux the release needs two things from the system that it does not carry, and
-both are reported misleadingly. Its object writer links against libc++ — the x64
-archive ships `libc++.so.1` without `libc++abi.so.1`, the arm64 archive ships
-neither — and a missing dependency of the object writer is reported as the object
-writer itself being missing. Its bundled linker on arm64 wants `libtinfo.so.5`,
-which no current Ubuntu ships; it uses terminfo only to decide whether to colour
-its output, so a symlink to `libtinfo.so.6` does. `.github/workflows/bflat.yml`
-does both.
+the first is reported misleadingly.
+
+Its object writer links against libc++ — the x64 archive ships `libc++.so.1`
+without `libc++abi.so.1`, the arm64 archive ships neither — and a missing
+dependency of the object writer is reported as the object writer itself being
+missing, which reads like a broken download.
+
+Its bundled linker on arm64 wants `libtinfo.so.5`; the x64 one references no such
+library. Ubuntu 24.04 ships only ncurses 6, and a symlink is not enough — the
+symbols are versioned, so the loader then refuses with
+`NCURSES_TINFO_5.0.19991023 not found`. The `libtinfo5` compatibility package is
+still in the archive and is what to install.
+
+`.github/workflows/bflat.yml` does both.
 
 Measured on the crypto, serialization, RingCT and logging layers — 104 files, with
 nothing else rooted:

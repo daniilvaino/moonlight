@@ -44,18 +44,23 @@ jobs:
           sudo apt-get install -y --no-install-recommends libc++1 libc++abi1 \
             || sudo apt-get install -y --no-install-recommends libc++1-18 libc++abi1-18
 
-      # And its linker wants libtinfo.so.5, which no current Ubuntu ships. Only the
-      # arm64 build does — the x64 lld needs none — and it wants it to decide
-      # whether to colour its diagnostics, so pointing 5 at 6 is the whole of it.
-      # bflat offers no way to use a different linker, only --ldflags.
-      - name: A libtinfo the bundled linker will accept
+      # And the arm64 lld wants libtinfo.so.5 — the x64 one references no such
+      # library, which is why only one architecture ever failed on this. Ubuntu 24.04
+      # ships only ncurses 6, and pointing a symlink at it is not enough: the loader
+      # then refuses with NCURSES_TINFO_5.0.19991023 not found, because the symbols
+      # are versioned. The real compatibility package is still in the archive.
+      #
+      # bflat offers no way to use a different linker, only --ldflags, so the library
+      # has to be there.
+      - name: The libtinfo bflat's linker was built against
+        if: matrix.arch == 'arm64'
         run: |
-          if ! ldconfig -p | grep -q 'libtinfo\.so\.5'; then
-            six=$(ldconfig -p | awk '/libtinfo\.so\.6/ { print $NF; exit }')
-            test -n "$six" || { echo "no libtinfo of any version"; exit 1; }
-            sudo ln -sf "$six" "$(dirname "$six")/libtinfo.so.5"
-            sudo ldconfig
+          if ! sudo apt-get install -y --no-install-recommends libtinfo5 2>/dev/null; then
+            deb=libtinfo5_6.3-2_arm64.deb
+            curl -fsSLO "http://ports.ubuntu.com/ubuntu-ports/pool/universe/n/ncurses/$deb"
+            sudo dpkg -i "$deb"
           fi
+          ldconfig -p | grep 'libtinfo\.so\.5'
 
       - name: Cache bflat
         id: cache
