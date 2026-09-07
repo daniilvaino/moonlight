@@ -10,13 +10,13 @@ modes are one build per operating system and architecture.
 | NativeAOT | `dotnet publish -r <rid>` | the two applications, and `Core.Abi` as a shared library | yes |
 | bflat | `bflat build … --stdlib DotNet` | the same three, smaller | yes |
 
-Measured, and each one run rather than only built:
+Measured on `win-x64`, and each one run rather than only built:
 
 | | NativeAOT | bflat |
 |---|---|---|
 | `Core.Abi` | 2726 KB | 1900 KB |
-| `moonlight` (Cli) | — | 5147 KB |
-| `moonlight-tui` | — | 5521 KB |
+| `moonlight` (Cli) | 6868 KB | 5147 KB |
+| `moonlight-tui` | 7420 KB | 5521 KB |
 
 The library was driven through a full scan from Python over ctypes — 3000 blocks,
 152 exchanges, no .NET in the process. The two bflat binaries restored a wallet,

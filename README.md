@@ -37,16 +37,42 @@ No P/Invoke, no native binaries, no NuGet packages in the parts that hold keys �
 ```sh
 dotnet build Moonlight.slnx
 dotnet test  Moonlight.slnx
-dotnet publish apps/Cli -c Release      # NativeAOT
-dotnet publish apps/Tui -c Release      # NativeAOT
+dotnet publish apps/Cli     -c Release  # NativeAOT
+dotnet publish apps/Tui     -c Release  # NativeAOT
+dotnet publish src/Core.Abi -c Release  # NativeAOT, as a shared library
 pwsh tools/purity-gate.ps1
 ```
 
-Targets net8.0, compiled as C# 14 — so SDK 10 is required to build, though nothing newer than .NET 8 is required to run. Everything is AOT-compatible with the trim and AOT analyzers on; `PublishAot` is set only on the two apps, so the ordinary build stays ordinary.
+Targets net8.0, compiled as C# 14 — so SDK 10 is required to build, though nothing newer than .NET 8 is required to run. Everything is AOT-compatible with the trim and AOT analyzers on.
+
+### Three ways, and what each produces
+
+|                    | managed | NativeAOT | bflat |
+|--------------------|:-------:|:---------:|:-----:|
+| `Core`, `Core.Http` and the layers under them | an assembly each, every platform | linked into what uses them | linked into what uses them |
+| `Core.Abi` — the linkable library | for the tests | 2726 KB | **1900 KB** |
+| `moonlight` — command line | ✓ | 6868 KB | **5147 KB** |
+| `moonlight-tui` | ✓ | 7420 KB | **5521 KB** |
+| `Gui.Demo` | ✓ | — | — |
+
+Sizes are `win-x64`, and every one of them was run, not only built: the library
+through a full scan from Python over ctypes — 3000 blocks, 152 exchanges, no .NET
+in the process — and each binary restoring a wallet and scanning to the tip.
+
+Managed assemblies are the same bytes everywhere, so they are built once. A native
+build has no separate library files at all — everything reachable is compiled into
+the one artifact, which is why `Core.Abi` measures smaller than either application
+and why keeping `Core.Http` out of it is worth 209 KB. Native artifacts are per
+operating system and architecture. `Gui.Demo` is managed only: it is an Avalonia
+application, and outside the purity gate on purpose.
+
+How each mode is invoked — and what bflat needs that MSBuild would have given it,
+including the trick for the one project whose C# outruns bflat's own compiler — is
+in [docs/build-modes.md](docs/build-modes.md).
 
 ### With Nix
 
-`flake.nix` builds the same two NativeAOT binaries hermetically — pinned SDKs, pinned NuGet, no network during the build.
+`flake.nix` builds the two NativeAOT applications hermetically — pinned SDKs, pinned NuGet, no network during the build. The shared library is not in the flake yet.
 
 ```sh
 nix build .#moonlight          # apps/Cli  -> result/bin/moonlight
@@ -83,17 +109,58 @@ src/                 sterile: 0 packages, 0 P/Invoke
 apps/
   Cli                sterile
   Tui                sterile; vendored Terminal.Gui v1
-  Gui.Demo           outside the gate — thin showcase, packages allowed
+  Gui.Demo           outside the gate — the interface, on made-up data so far
 tests/               outside the gate
   vectors/           the corpus (8.3 MB)
 media/               brand assets
 work/                git-ignored scratch for donor clones
 ```
 
-Applications reference `Core.Http` and nothing else. Following the chain is a state
-machine in `Core` that does no I/O — it says what to send, the host sends it — so a
-user interface written in any language can link the library and use its own
-networking. Details in [docs/architecture.md](docs/architecture.md).
+An arrow points at what a project needs. References already reachable by another
+path are left out — `Core` names `Node` and `Diagnostics` in its project file too,
+but it can get to both through `Wallet`.
+
+`Core.Abi` is drawn purple inside an orange edge because it is both: sterile like
+everything else, and the one project allowed to export a symbol out of managed code.
+The gate enforces that boundary — see [purity](#purity).
+
+```mermaid
+flowchart TD
+    Tui["apps/Tui"]:::sterile --> TG["Vendor Terminal.Gui"]:::sterile
+    Tui --> CoreHttp
+    Cli["apps/Cli"]:::sterile --> CoreHttp
+    Gui["apps/Gui.Demo"]:::outside --> CoreHttp
+
+    CoreHttp["Core.Http<br/>the socket"]:::sterile --> Core
+    Abi["Core.Abi<br/>the C interface"]:::bridge --> Core
+
+    %% Abi is a consumer of Core like the three above it, not a layer under them.
+    %% The invisible link only lifts it into their row; it draws nothing.
+    Abi ~~~ CoreHttp
+
+    Core["Core<br/>sync engine, open wallet"]:::sterile --> Wallet["Wallet"]:::sterile
+    Wallet --> RingCT["RingCT"]:::sterile
+    Wallet --> Node["Node"]:::sterile
+    RingCT --> Ser["Serialization"]:::sterile
+    Node --> Ser
+    Ser --> Crypto["Crypto"]:::sterile
+    Crypto --> Ed["Crypto.Ed25519"]:::sterile
+    Node --> Diag["Diagnostics"]:::sterile
+
+    classDef sterile fill:#2b1d4d,stroke:#7c3aed,stroke-width:1px,color:#e9e4f7
+    classDef outside fill:#4a2a10,stroke:#f2640a,stroke-width:1px,color:#f7ece4
+    classDef bridge fill:#2b1d4d,stroke:#f2640a,stroke-width:2px,color:#e9e4f7
+```
+
+Applications reference `Core.Http` and nothing else; `Core.Abi` references `Core`,
+and the two know nothing about each other. That is what keeps an HTTP stack out of
+a library somebody links into their own application.
+
+Following the chain is a state machine in `Core` that does no I/O — it says what to
+send, the host sends it, the answer goes back in. So a user interface written in
+anything can link the library and keep its own networking: its trust store, its
+proxy settings, its idea of a timeout. Details in
+[docs/architecture.md](docs/architecture.md).
 
 Layers depend downward only, and that rule has already moved two things: `VarInt` sits in `Crypto` because view tags need it, and `Scalar`/`Point` sit there too because they need Monero's additions to ref10. Key material never travels as `byte[]`: constructing a `Scalar` or a `Point` is the only place bytes are checked, so holding one means holding something the curve will accept.
 
