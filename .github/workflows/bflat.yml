@@ -23,11 +23,9 @@ jobs:
     env:
       BFLAT_VERSION: 8.0.2
 
-      # bflat's object writer is a native library that links against libc++, and the
-      # release carries its own copy in lib64 rather than expecting one installed.
-      # Without this the compiler reports the object writer as missing, which reads
-      # like a broken download and is not.
-      LD_LIBRARY_PATH: ${{ github.workspace }}/bflat:${{ github.workspace }}/bflat/lib64
+      # So the object writer beside the compiler is found. Its own dependencies are
+      # a separate matter — see the step that installs them.
+      LD_LIBRARY_PATH: ${{ github.workspace }}/bflat
 
     steps:
       - uses: actions/checkout@v4
@@ -35,6 +33,16 @@ jobs:
       - uses: actions/setup-dotnet@v4
         with:
           global-json-file: global.json
+
+      # bflat's object writer links against libc++, and the release does not carry a
+      # complete one: the x64 archive ships libc++.so.1 without libc++abi.so.1, and
+      # the arm64 archive ships neither. Missing either is reported as the object
+      # writer itself being missing, which reads like a broken download.
+      - name: The C++ runtime bflat links against
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends libc++1 libc++abi1 \
+            || sudo apt-get install -y --no-install-recommends libc++1-18 libc++abi1-18
 
       - name: Cache bflat
         id: cache
