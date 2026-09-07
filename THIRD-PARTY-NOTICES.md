@@ -19,4 +19,7 @@ Christopher Jeffrey and Miguel de Icaza — and all four travel with the code.
 
 Ported by hand, no code copied: `monero/src/ringct` (BSD-3).
 
-<!-- Append each component's verbatim LICENSE below at import time. -->
+The verbatim licence text travels with the code it covers: every `Vendor/` directory
+carries the donor's own `LICENSE` file beside the sources taken from it. This page is
+the index, not the copy — an instruction to paste them all in here stood unfollowed
+through five imports, which is a fair sign it was the wrong arrangement.

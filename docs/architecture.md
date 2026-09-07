@@ -32,7 +32,7 @@ it, and `Scalar`/`Point` with it.
 | `Crypto` | `Vendor/MoneroRing` (Keccak and RNG swapped for ours); `Keccak.cs`, `VarInt.cs`, `ViewTag.cs`, `Scalar.cs`, `Point.cs` ours. Scalar and Point live here, not in Crypto.Ed25519: they need `sc_check`/`sc_reduce32`/`hash_to_ec`, which are Monero's additions to ref10 |
 | `Serialization` | ours; ref `monero/src/cryptonote_basic`, Epee cross-checked vs monero-oxide |
 | `RingCT` | hand port of `src/ringct/*.cc`; CLSAG first in C#; BP+ transcript verified step by step vs monero-oxide |
-| `Node` | ours. JSON-RPC over `HttpClient`; `DaemonClient` still uses source-generated `System.Text.Json`, which is the last generator in the tree |
+| `Node` | ours. JSON-RPC over `HttpClient`, read and written with `Utf8JsonReader` and `Utf8JsonWriter` — there is no source generator anywhere in the tree |
 | `Wallet` | `Vendor/MoneroSharp` (English word list only); rest ours |
 | `Core` | ours. The engine reads JSON by hand — measured, `JsonSerializer` throws with reflection disabled where `Utf8JsonReader` does not |
 

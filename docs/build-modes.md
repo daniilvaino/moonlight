@@ -60,11 +60,15 @@ Targets we build for: `linux-x64`, `linux-arm64`, `osx-arm64`, `win-x64`. The .N
 with no SDK and no MSBuild. It is how the library gets small.
 
 ```sh
-bflat build $(find src -name '*.cs' -not -path '*/obj/*' -not -path '*/bin/*') \
+bflat build $(find src -name '*.cs' -not -path '*/obj/*' -not -path '*/bin/*' \
+                       -not -path '*/Core.Http/*') \
     GlobalUsings.cs \
     --target Shared -o libmoonlight.so \
     --stdlib DotNet --no-reflection --no-globalization --no-stacktrace-data
 ```
+
+`Core.Http` is left out on purpose: the library is for a host that does its own
+networking, and excluding it is what keeps `HttpClient` out of the binary.
 
 Those four flags are the configuration, not a choice among several: reflection off
 is the point, and the other three cost nothing a wallet uses.
@@ -79,11 +83,7 @@ nothing else rooted:
 | `+ --no-globalization --no-stacktrace-data` | 638 KB |
 | the same, with JSON reading rooted | 783 KB |
 
-The whole library including `Core.Abi` comes to 2109 KB, against 2726 KB for the
-same sources through NativeAOT. Both were driven through a full scan from Python
-over ctypes, so the difference is size rather than behaviour.
-
-Three things to know before using it.
+Two things to know before using it.
 
 **No MSBuild means no implicit usings.** A `GlobalUsings.cs` holding what
 `<ImplicitUsings>enable</ImplicitUsings>` would have generated has to be passed
@@ -105,15 +105,50 @@ bflat build <sources> -r .../Moonlight.Vendor.TerminalGui.dll -o moonlight-tui
 like any other. This works for anything that hits a language-version wall, not just
 this one project.
 
-**No source generators.** `JsonSerializerContext` does not exist under bflat, and
-it would not help anyway: measured, `JsonSerializer` throws with reflection
-disabled, while `Utf8JsonReader`, `Utf8JsonWriter` and `JsonDocument` all work.
-That is why `SyncEngine` reads JSON by hand.
+**No source generators** — which is why the tree no longer has one. bflat does not
+run them, so a `JsonSerializerContext` simply does not exist there and the file
+declaring it will not compile; feeding it pre-generated sources would make the
+build depend on having run `dotnet build` first, in the right order. It would not
+have helped anyway: measured, `JsonSerializer` throws with reflection disabled,
+while `Utf8JsonReader`, `Utf8JsonWriter` and `JsonDocument` all work. So
+`WalletDocument`, `SyncEngine` and `DaemonClient` read and write JSON by hand, and
+the command above is the whole command.
 
 `--stdlib Zero` is not a target for this wallet. It has no `System.Exception` at
 all, and error handling here is exceptions at every layer — a malformed blob must
 be impossible to swallow quietly. A crypto-only library could be built that way,
 and that is a separate thing to want.
+
+## With Nix
+
+`flake.nix` builds the two NativeAOT applications hermetically — pinned SDKs,
+pinned NuGet, no network during the build. The shared library is not in the
+flake yet.
+
+```sh
+nix build .#moonlight          # apps/Cli  -> result/bin/moonlight
+nix build .#moonlight-tui      # apps/Tui  -> result/bin/moonlight-tui
+nix run   .# -- version
+nix flake check                # both apps, the test corpus, the purity gate
+nix develop                    # SDK 10 + SDK 8 + pwsh, then build by hand
+```
+
+The dev shell carries no C toolchain on macOS: ILC calls `clang`, `dsymutil` and
+`strip` by name, and Nixpkgs' `strip` rejects the flags it passes, so Xcode's
+command line tools stay in front. The packages build hermetically on all three
+platforms regardless.
+
+NuGet is locked in `nix/deps/*.json`. Only `tests/` pulls packages; the two apps
+pull none, so their locks are empty and have to stay that way. The ILCompiler is
+not an exception — it comes from the combined SDK, and listing it as well makes
+two inputs offer the same package to `configureNuget`, which links them with a
+bare `ln -s` and fails on the second. After changing a `PackageReference`,
+regenerate the matching lock (`.#moonlight-tui` for `tui.json`,
+`.#checks.<system>.tests` for `tests.json`):
+
+```sh
+$(nix build --no-link --print-out-paths .#moonlight.passthru.fetch-deps) "$PWD/nix/deps/cli.json"
+```
 
 ## Why HttpClient stays out of the small builds
 

@@ -9,8 +9,8 @@ Fork impact by area:
 |---|---|
 | `RingCT` | new/changed proof system — the big one |
 | `Serialization` | tx version, field layout |
-| `Wallet/Fees.cs` | weight/clawback formula |
-| `Wallet/Decoys.cs` | selection distribution |
+| `Wallet/Fees.cs` _(planned)_ | weight/clawback formula |
+| `Wallet/Decoys.cs` _(planned)_ | selection distribution |
 | `Node` | RPC and binary endpoints |
 
 ## FCMP++

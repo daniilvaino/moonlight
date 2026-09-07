@@ -1,5 +1,5 @@
 using System.Net.Http;
-using System.Net.Http.Json;
+using System.Text;
 using System.Text.Json;
 using Moonlight.Serialization;
 
@@ -9,6 +9,13 @@ namespace Moonlight.Node;
 /// monerod's JSON-RPC. Enough of it to follow the chain and pull real blocks;
 /// the binary endpoints are a separate matter.
 /// </summary>
+/// <remarks>
+/// The JSON is read and written by hand. A source-generated serializer would be
+/// the obvious choice and is not usable here for two reasons, both measured: it
+/// still needs reflection at run time, which a small linked library cannot afford,
+/// and the generator does not run under bflat at all, so the file it produces
+/// would have to be built first and carried alongside the sources.
+/// </remarks>
 public sealed class DaemonClient : IDisposable
 {
     private readonly HttpClient http;
@@ -30,35 +37,44 @@ public sealed class DaemonClient : IDisposable
 
     public async Task<ulong> GetHeightAsync(CancellationToken cancellationToken = default)
     {
-        GetHeightResult result = await PostAsync("get_height", DaemonJson.Default.GetHeightResult, cancellationToken)
+        using JsonDocument answer = await PostAsync("get_height", "{}"u8.ToArray(), cancellationToken)
             .ConfigureAwait(false);
 
-        return result.Height;
+        return Number(answer.RootElement, "height")
+            ?? throw new DaemonException("get_height said nothing about a height");
     }
 
     /// <summary>The block at a height, already parsed from the blob the daemon sends.</summary>
     public async Task<Block> GetBlockAsync(ulong height, CancellationToken cancellationToken = default)
     {
-        GetBlockResult result = await JsonRpcAsync(
-            "get_block",
-            new GetBlockParams(height),
-            DaemonJson.Default.JsonRpcRequestGetBlockParams,
-            DaemonJson.Default.JsonRpcResponseGetBlockResult,
-            cancellationToken).ConfigureAwait(false);
+        using JsonDocument answer = await GetBlockRpcAsync(height, cancellationToken).ConfigureAwait(false);
 
-        return BlockParser.Parse(Convert.FromHexString(result.Blob));
+        JsonElement result = Result(answer, "get_block");
+
+        return result.TryGetProperty("blob", out JsonElement blob) && blob.GetString() is string hex
+            ? BlockParser.Parse(Convert.FromHexString(hex))
+            : throw new DaemonException("get_block returned no block");
     }
 
     public async Task<BlockHeaderInfo> GetBlockHeaderAsync(ulong height, CancellationToken cancellationToken = default)
     {
-        GetBlockResult result = await JsonRpcAsync(
-            "get_block",
-            new GetBlockParams(height),
-            DaemonJson.Default.JsonRpcRequestGetBlockParams,
-            DaemonJson.Default.JsonRpcResponseGetBlockResult,
-            cancellationToken).ConfigureAwait(false);
+        using JsonDocument answer = await GetBlockRpcAsync(height, cancellationToken).ConfigureAwait(false);
 
-        return result.Header;
+        if (!Result(answer, "get_block").TryGetProperty("block_header", out JsonElement header))
+        {
+            throw new DaemonException("get_block returned no block header");
+        }
+
+        return new BlockHeaderInfo(
+            Text(header, "hash") ?? "",
+            Number(header, "height") ?? 0,
+            (byte)(Number(header, "major_version") ?? 0),
+            (byte)(Number(header, "minor_version") ?? 0),
+            Number(header, "timestamp") ?? 0,
+            Text(header, "prev_hash") ?? "",
+            (uint)(Number(header, "nonce") ?? 0),
+            Number(header, "num_txes") ?? 0,
+            Number(header, "reward") ?? 0);
     }
 
     /// <summary>
@@ -69,87 +85,123 @@ public sealed class DaemonClient : IDisposable
     {
         ArgumentNullException.ThrowIfNull(ids);
 
-        if (ids.Count == 0)
+        if (ids.Count == 0) return [];
+
+        using MemoryStream body = new();
+
+        using (Utf8JsonWriter writer = new(body))
         {
-            return [];
+            writer.WriteStartObject();
+            writer.WriteStartArray("txs_hashes");
+            foreach (string id in ids) writer.WriteStringValue(id);
+            writer.WriteEndArray();
+            writer.WriteBoolean("decode_as_json", false);
+            writer.WriteEndObject();
         }
 
-        using HttpResponseMessage response = await http.PostAsJsonAsync(
-            "get_transactions",
-            new GetTransactionsRequest([.. ids]),
-            DaemonJson.Default.GetTransactionsRequest,
-            cancellationToken).ConfigureAwait(false);
+        using JsonDocument answer = await PostAsync("get_transactions", body.ToArray(), cancellationToken)
+            .ConfigureAwait(false);
 
-        response.EnsureSuccessStatusCode();
-
-        GetTransactionsResult result = await response.Content
-            .ReadFromJsonAsync(DaemonJson.Default.GetTransactionsResult, cancellationToken)
-            .ConfigureAwait(false) ?? throw new DaemonException("get_transactions returned no body");
-
-        if (result.Missed is { Length: > 0 })
+        if (answer.RootElement.TryGetProperty("missed_tx", out JsonElement missed) &&
+            missed.ValueKind == JsonValueKind.Array &&
+            missed.GetArrayLength() > 0)
         {
-            throw new DaemonException($"daemon does not have {result.Missed.Length} of the requested transactions");
+            throw new DaemonException($"daemon does not have {missed.GetArrayLength()} of the requested transactions");
         }
 
-        TransactionEntry[] entries = result.Transactions ?? [];
-        Dictionary<string, TransactionEntry> byHash = entries.ToDictionary(e => e.Hash, StringComparer.OrdinalIgnoreCase);
+        Dictionary<string, string> byHash = new(StringComparer.OrdinalIgnoreCase);
+
+        if (answer.RootElement.TryGetProperty("txs", out JsonElement transactions) &&
+            transactions.ValueKind == JsonValueKind.Array)
+        {
+            foreach (JsonElement entry in transactions.EnumerateArray())
+            {
+                if (Text(entry, "tx_hash") is string hash && Text(entry, "as_hex") is string hex)
+                {
+                    byHash[hash] = hex;
+                }
+            }
+        }
 
         byte[][] blobs = new byte[ids.Count][];
+
         for (int i = 0; i < ids.Count; i++)
         {
-            if (!byHash.TryGetValue(ids[i], out TransactionEntry? entry) || entry.AsHex is null)
-            {
-                throw new DaemonException($"no blob for transaction {ids[i]}");
-            }
-
-            blobs[i] = Convert.FromHexString(entry.AsHex);
+            blobs[i] = byHash.TryGetValue(ids[i], out string? hex)
+                ? Convert.FromHexString(hex)
+                : throw new DaemonException($"no blob for transaction {ids[i]}");
         }
 
         return blobs;
     }
 
-    private async Task<TResult> JsonRpcAsync<TParams, TResult>(
-        string method,
-        TParams parameters,
-        System.Text.Json.Serialization.Metadata.JsonTypeInfo<JsonRpcRequest<TParams>> requestType,
-        System.Text.Json.Serialization.Metadata.JsonTypeInfo<JsonRpcResponse<TResult>> responseType,
-        CancellationToken cancellationToken)
+    private Task<JsonDocument> GetBlockRpcAsync(ulong height, CancellationToken cancellationToken)
     {
-        using HttpResponseMessage response = await http.PostAsJsonAsync(
-            "json_rpc",
-            new JsonRpcRequest<TParams>(method, parameters),
-            requestType,
-            cancellationToken).ConfigureAwait(false);
+        using MemoryStream body = new();
 
-        response.EnsureSuccessStatusCode();
-
-        JsonRpcResponse<TResult> body = await response.Content
-            .ReadFromJsonAsync(responseType, cancellationToken)
-            .ConfigureAwait(false) ?? throw new DaemonException($"{method} returned no body");
-
-        if (body.Error is not null)
+        using (Utf8JsonWriter writer = new(body))
         {
-            throw new DaemonException($"{method} failed: {body.Error.Message} ({body.Error.Code})");
+            writer.WriteStartObject();
+            writer.WriteString("jsonrpc", "2.0");
+            writer.WriteString("id", "0");
+            writer.WriteString("method", "get_block");
+            writer.WriteStartObject("params");
+            writer.WriteNumber("height", height);
+            writer.WriteEndObject();
+            writer.WriteEndObject();
         }
 
-        return body.Result ?? throw new DaemonException($"{method} returned no result");
+        return PostAsync("json_rpc", body.ToArray(), cancellationToken);
     }
 
-    /// <summary>The non-RPC endpoints, which take no parameters and answer directly.</summary>
-    private async Task<TResult> PostAsync<TResult>(
-        string path,
-        System.Text.Json.Serialization.Metadata.JsonTypeInfo<TResult> resultType,
-        CancellationToken cancellationToken)
+    /// <summary>The result of a JSON-RPC call, or the refusal it carried instead.</summary>
+    private static JsonElement Result(JsonDocument answer, string method)
     {
-        using HttpResponseMessage response = await http
-            .PostAsync(path, new StringContent("{}", System.Text.Encoding.UTF8, "application/json"), cancellationToken)
+        if (answer.RootElement.TryGetProperty("error", out JsonElement error))
+        {
+            throw new DaemonException(
+                $"{method} failed: {Text(error, "message") ?? "?"} ({Number(error, "code") ?? 0})");
+        }
+
+        return answer.RootElement.TryGetProperty("result", out JsonElement result)
+            ? result
+            : throw new DaemonException($"{method} returned no result");
+    }
+
+    private async Task<JsonDocument> PostAsync(string path, byte[] body, CancellationToken cancellationToken)
+    {
+        using ByteArrayContent content = new(body);
+        content.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("application/json")
+        {
+            CharSet = Encoding.UTF8.WebName,
+        };
+
+        using HttpResponseMessage response = await http.PostAsync(path, content, cancellationToken)
             .ConfigureAwait(false);
 
         response.EnsureSuccessStatusCode();
 
-        return await response.Content.ReadFromJsonAsync(resultType, cancellationToken).ConfigureAwait(false)
-            ?? throw new DaemonException($"{path} returned no body");
+        byte[] answer = await response.Content.ReadAsByteArrayAsync(cancellationToken).ConfigureAwait(false);
+
+        try
+        {
+            return JsonDocument.Parse(answer);
+        }
+        catch (JsonException e)
+        {
+            throw new DaemonException($"{path} answered with something that is not JSON", e);
+        }
     }
+
+    private static string? Text(JsonElement parent, string name)
+        => parent.TryGetProperty(name, out JsonElement value) && value.ValueKind == JsonValueKind.String
+            ? value.GetString()
+            : null;
+
+    private static ulong? Number(JsonElement parent, string name)
+        => parent.TryGetProperty(name, out JsonElement value) && value.TryGetUInt64(out ulong number)
+            ? number
+            : null;
 
     public void Dispose()
     {

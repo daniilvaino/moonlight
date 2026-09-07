@@ -16,7 +16,7 @@
 Outside the gate: `tests/**`, `apps/Gui.Demo/`. Nothing sterile may reference the demo.
 
 Target is `net8.0`. Everything is AOT-compatible (`IsAotCompatible`, trim/AOT analyzers on);
-`PublishAot` is set only on `apps/Cli` and `apps/Tui`, so the ordinary build keeps working.
+`PublishAot` is set only on `apps/Cli`, `apps/Tui` and `src/Core.Abi` (which also sets `NativeLib`), so the ordinary build keeps working.
 
 ## Enforcement
 
@@ -45,6 +45,7 @@ Verified on the clones in `work/`:
 | MoneroSharp | MIT | copy |
 | QRCoder | MIT | copy (vendored as source, never from NuGet — `apps/Tui` is sterile) |
 | Terminal.Gui fork | MIT | copy |
+| XtermSharp | MIT | copy — one file, `CharWidth.cs`, which came through the same fork |
 | monero-csharp, monero-lws-csharp | MIT | copy (RPC models) |
 | monero-oxide | MIT, per crate | copy — every crate checked, all MIT |
 | p2pool-consensus | MIT | copy |
