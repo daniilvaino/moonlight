@@ -1,10 +1,11 @@
 using System.Net.Http;
 using System.Net.Http.Headers;
+using Moonlight.Core;
 using Moonlight.Diagnostics;
 using Moonlight.Node;
 using Moonlight.Wallet;
 
-namespace Moonlight.Core;
+namespace Moonlight.Core.Http;
 
 /// <summary>
 /// The engine driven over HTTP: the synchronous brother of the state machine, for
@@ -28,36 +29,34 @@ public sealed class HttpSync : IDisposable
     private static readonly MediaTypeHeaderValue Binary = new("application/octet-stream");
 
     private readonly HttpClient http;
-    private readonly DaemonClient daemon;
-    private readonly WalletState state;
     private readonly SyncEngine engine;
     private readonly SemaphoreSlim wake = new(0);
-    private readonly bool ownsClients;
+    private readonly bool ownsClient;
 
-    public HttpSync(Uri address, WalletState state)
-        : this(new HttpClient { BaseAddress = address, Timeout = TimeSpan.FromMinutes(2) }, new DaemonClient(address), state)
-        => ownsClients = true;
-
-    public HttpSync(HttpClient http, DaemonClient daemon, WalletState state)
-    {
-        ArgumentNullException.ThrowIfNull(http);
-        ArgumentNullException.ThrowIfNull(daemon);
-        ArgumentNullException.ThrowIfNull(state);
-
-        this.http = http;
-        this.daemon = daemon;
-        this.state = state;
-
-        engine = new SyncEngine(state);
-    }
+    public HttpSync(Uri address, SyncEngine engine)
+        : this(new HttpClient { BaseAddress = address, Timeout = TimeSpan.FromMinutes(2) }, engine)
+        => ownsClient = true;
 
     /// <summary>
-    /// A restore date whose exact block is still unknown, from a wallet restored
-    /// with no daemon to hand. The first catch-up puts it to the daemon and clears
-    /// it; whoever saves the wallet writes back whatever is here, so the question
-    /// is asked once rather than on every open.
+    /// Drives an engine somebody else owns. It matters that the engine comes from
+    /// outside: the wallet keeps one, and a second one made here would settle a
+    /// restore date the wallet then never saves.
     /// </summary>
-    public DateTimeOffset? PendingRestoreDate { get; set; }
+    public HttpSync(HttpClient http, SyncEngine engine)
+    {
+        ArgumentNullException.ThrowIfNull(http);
+        ArgumentNullException.ThrowIfNull(engine);
+
+        this.http = http;
+        this.engine = engine;
+    }
+
+    /// <summary>Passed through to the engine, which is what settles it.</summary>
+    public DateTimeOffset? PendingRestoreDate
+    {
+        get => engine.PendingRestoreDate;
+        set => engine.PendingRestoreDate = value;
+    }
 
     /// <summary>Ask the loop to look now rather than at the end of its interval.</summary>
     public void RefreshNow()
@@ -75,8 +74,6 @@ public sealed class HttpSync : IDisposable
     {
         engine.Restart();
         engine.Progressed = onProgress;
-
-        bool settled = false;
 
         try
         {
@@ -98,16 +95,6 @@ public sealed class HttpSync : IDisposable
                 }
 
                 engine.Supply(response);
-
-                if (!settled)
-                {
-                    // After the chain height is known and before a single block is
-                    // read: a wallet restored offline started weeks early on purpose,
-                    // and this is the moment that guess can be replaced.
-                    settled = true;
-                    await SettleRestoreDateAsync(cancellationToken).ConfigureAwait(false);
-                }
-
                 onProgress?.Invoke(engine.Progress);
             }
         }
@@ -164,23 +151,6 @@ public sealed class HttpSync : IDisposable
         }
     }
 
-    /// <summary>
-    /// Replaces an offline estimate with the block the date actually names. Still
-    /// driven from here rather than from the engine: it is a binary search over
-    /// block headers, and moving it inside is its own piece of work.
-    /// </summary>
-    private async Task SettleRestoreDateAsync(CancellationToken cancellationToken)
-    {
-        if (PendingRestoreDate is not DateTimeOffset pending) return;
-
-        ulong? exact = await RestoreHeight.RefineAsync(daemon, pending, state, cancellationToken).ConfigureAwait(false);
-        PendingRestoreDate = null;
-
-        Log.Info("restore", exact is ulong at
-            ? $"{pending:yyyy-MM-dd} resolved to block {at}, from an estimate"
-            : $"{pending:yyyy-MM-dd} left as estimated — the wallet has already scanned");
-    }
-
     private async Task<byte[]> SendAsync(SyncRequest request, CancellationToken cancellationToken)
     {
         using ByteArrayContent content = new(request.Body);
@@ -198,9 +168,6 @@ public sealed class HttpSync : IDisposable
     {
         wake.Dispose();
 
-        if (!ownsClients) return;
-
-        http.Dispose();
-        daemon.Dispose();
+        if (ownsClient) http.Dispose();
     }
 }

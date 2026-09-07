@@ -42,7 +42,7 @@ public sealed class WalletSessionTests : IDisposable
     {
         Account account = Account.Create();
 
-        using WalletSession wallet = WalletSession.Open(Write(account, 4242), "p", "http://node:18081/");
+        WalletSession wallet = WalletSession.Open(Write(account, 4242), "p", "http://node:18081/");
 
         Assert.Equal(account.Address, wallet.Account.Address);
         Assert.Equal(4242UL, wallet.State.ScannedHeight);
@@ -58,12 +58,10 @@ public sealed class WalletSessionTests : IDisposable
     {
         string path = Write(Account.Create(), daemon: "http://remembered:18081/");
 
-        using (WalletSession asked = WalletSession.Open(path, "p", "http://asked:18081/"))
-        {
-            Assert.Equal("asked", asked.Daemon.Host);
-        }
+        WalletSession asked = WalletSession.Open(path, "p", "http://asked:18081/");
+        Assert.Equal("asked", asked.Daemon.Host);
 
-        using WalletSession remembered = WalletSession.Open(path, "p");
+        WalletSession remembered = WalletSession.Open(path, "p");
 
         Assert.Equal("remembered", remembered.Daemon.Host);
     }
@@ -74,13 +72,12 @@ public sealed class WalletSessionTests : IDisposable
         Account account = Account.Create();
         string path = Write(account, 100);
 
-        using (WalletSession wallet = WalletSession.Open(path, "p", "http://first:18081/"))
-        {
-            wallet.UseDaemon(new Uri("http://second:18081/"));
-            wallet.Save();
-        }
+        WalletSession wallet = WalletSession.Open(path, "p", "http://first:18081/");
 
-        using WalletSession again = WalletSession.Open(path, "p");
+        wallet.UseDaemon(new Uri("http://second:18081/"));
+        wallet.Save();
+
+        WalletSession again = WalletSession.Open(path, "p");
 
         Assert.Equal("second", again.Daemon.Host);
         Assert.Equal(100UL, again.State.ScannedHeight);
@@ -105,11 +102,10 @@ public sealed class WalletSessionTests : IDisposable
             account, Storage.Seal("p", Fast), 3_146_248, document.Settings.Lookahead, null, null,
             document.SettingsFingerprint(), date));
 
-        using (WalletSession wallet = WalletSession.Open(path, "p", "http://first:18081/"))
-        {
-            wallet.UseDaemon(new Uri("http://second:18081/"));
-            wallet.Save();
-        }
+        WalletSession wallet = WalletSession.Open(path, "p", "http://first:18081/");
+
+        wallet.UseDaemon(new Uri("http://second:18081/"));
+        wallet.Save();
 
         Assert.Equal(date, WalletSession.Open(path, "p").File.PendingRestoreDate);
     }

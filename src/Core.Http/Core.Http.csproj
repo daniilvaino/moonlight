@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <AssemblyName>Moonlight.Core.Http</AssemblyName>
+    <RootNamespace>Moonlight.Core.Http</RootNamespace>
+  </PropertyGroup>
+
+  <!-- The socket, kept out of Core so that a library linked into somebody else's
+       application does not carry an HTTP stack it will never use. Measured, that
+       is about half a megabyte. -->
+  <ItemGroup>
+    <ProjectReference Include="..\Core\Core.csproj" />
+  </ItemGroup>
+
+</Project>

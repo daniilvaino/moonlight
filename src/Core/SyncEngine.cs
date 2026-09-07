@@ -44,6 +44,12 @@ public sealed class SyncEngine
         /// <summary>How far the chain goes, which frames everything after it.</summary>
         ChainHeight,
 
+        /// <summary>
+        /// Narrowing an offline restore estimate to the block its date actually
+        /// names. A binary search over block headers, one request per step.
+        /// </summary>
+        RestoreDate,
+
         /// <summary>The genesis id for the locator. Asked once, and never fatal.</summary>
         Genesis,
 
@@ -57,6 +63,8 @@ public sealed class SyncEngine
     private readonly WalletState state;
     private Stage stage = Stage.ChainHeight;
     private byte[] genesis = [];
+    private ulong low;
+    private ulong high;
 
     public SyncEngine(WalletState state)
     {
@@ -70,6 +78,14 @@ public sealed class SyncEngine
     /// moving only between batches looks stopped.
     /// </summary>
     public Action<SyncProgress>? Progressed { get; set; }
+
+    /// <summary>
+    /// A restore date whose exact block is still unknown, from a wallet restored
+    /// with no daemon to hand. The first sweep puts it to the daemon and clears it;
+    /// whoever saves the wallet writes back whatever is here, so the question is
+    /// asked once rather than on every open.
+    /// </summary>
+    public DateTimeOffset? PendingRestoreDate { get; set; }
 
     /// <summary>The tip as the daemon last reported it.</summary>
     public ulong ChainHeight { get; private set; }
@@ -88,6 +104,7 @@ public sealed class SyncEngine
     public SyncRequest? Next() => stage switch
     {
         Stage.ChainHeight => new SyncRequest("get_height", "{}"u8.ToArray()),
+        Stage.RestoreDate => new SyncRequest("json_rpc", GetBlockRequest(low + ((high - low) / 2))),
         Stage.Genesis => new SyncRequest("json_rpc", GetBlockRequest(0)),
         Stage.Blocks => new SyncRequest("getblocks.bin", BinEndpoints.BuildGetBlocksRequest(state.ScannedHeight, Locator())),
         _ => null,
@@ -104,7 +121,11 @@ public sealed class SyncEngine
         {
             case Stage.ChainHeight:
                 ChainHeight = ReadHeight(response);
-                stage = state.ScannedHeight < ChainHeight ? Stage.Genesis : Stage.CaughtUp;
+                stage = state.ScannedHeight < ChainHeight ? BeginRestoreDate() : Stage.CaughtUp;
+                break;
+
+            case Stage.RestoreDate:
+                NarrowRestoreDate(ReadTimestamp(response));
                 break;
 
             case Stage.Genesis:
@@ -141,6 +162,63 @@ public sealed class SyncEngine
 
     /// <summary>Starts again from the top, which is what a warm wallet does every interval.</summary>
     public void Restart() => stage = Stage.ChainHeight;
+
+    /// <summary>
+    /// Whether there is a date to settle, and the bounds to settle it in.
+    /// </summary>
+    /// <remarks>
+    /// Two guards, and both are about not losing money rather than not wasting
+    /// time. A wallet that has already found an output cannot be moved at all: that
+    /// output was found below the new height, and the scan that found it would not
+    /// happen again. And the move is only ever forward — the offline estimate lands
+    /// early by design, so an answer pointing backwards means something is wrong.
+    /// </remarks>
+    private Stage BeginRestoreDate()
+    {
+        if (PendingRestoreDate is null || ChainHeight == 0 || state.Outputs.Any())
+        {
+            if (PendingRestoreDate is DateTimeOffset skipped)
+            {
+                Log.Info("restore", $"{skipped:yyyy-MM-dd} left as estimated — the wallet has already scanned");
+                PendingRestoreDate = null;
+            }
+
+            return Stage.Genesis;
+        }
+
+        low = 0;
+        high = ChainHeight - 1;
+
+        return Stage.RestoreDate;
+    }
+
+    /// <summary>
+    /// One step of the search: the first block at or after the date. The same
+    /// binary search wallet2 does, one request per halving.
+    /// </summary>
+    private void NarrowRestoreDate(ulong timestamp)
+    {
+        ulong target = (ulong)Math.Max(PendingRestoreDate!.Value.ToUnixTimeSeconds(), 0);
+        ulong middle = low + ((high - low) / 2);
+
+        if (timestamp < target) low = middle + 1;
+        else high = middle;
+
+        if (low < high) return;
+
+        DateTimeOffset date = PendingRestoreDate.Value;
+        PendingRestoreDate = null;
+        stage = Stage.Genesis;
+
+        if (low <= state.ScannedHeight)
+        {
+            Log.Info("restore", $"{date:yyyy-MM-dd} left as estimated — block {low} is not ahead of the scan");
+            return;
+        }
+
+        state.SkipTo(low);
+        Log.Info("restore", $"{date:yyyy-MM-dd} resolved to block {low}, from an estimate");
+    }
 
     /// <summary>
     /// The block locator: recent ids first, then the genesis. The daemon answers
@@ -238,18 +316,36 @@ public sealed class SyncEngine
         return stream.ToArray();
     }
 
-    private static byte[] ReadGenesisId(ReadOnlySpan<byte> response)
+    private static ulong ReadTimestamp(ReadOnlySpan<byte> response)
     {
         using JsonDocument document = JsonDocument.Parse(response.ToArray());
 
+        if (!Result(document).TryGetProperty("block_header", out JsonElement header) ||
+            !header.TryGetProperty("timestamp", out JsonElement timestamp))
+        {
+            throw new DaemonException("get_block returned no block header");
+        }
+
+        return timestamp.GetUInt64();
+    }
+
+    private static JsonElement Result(JsonDocument document)
+    {
         if (document.RootElement.TryGetProperty("error", out JsonElement error))
         {
             throw new DaemonException($"get_block failed: {error}");
         }
 
-        if (!document.RootElement.TryGetProperty("result", out JsonElement result) ||
-            !result.TryGetProperty("blob", out JsonElement blob) ||
-            blob.GetString() is not string hex)
+        return document.RootElement.TryGetProperty("result", out JsonElement result)
+            ? result
+            : throw new DaemonException("get_block returned no result");
+    }
+
+    private static byte[] ReadGenesisId(ReadOnlySpan<byte> response)
+    {
+        using JsonDocument document = JsonDocument.Parse(response.ToArray());
+
+        if (!Result(document).TryGetProperty("blob", out JsonElement blob) || blob.GetString() is not string hex)
         {
             throw new DaemonException("get_block returned no block");
         }

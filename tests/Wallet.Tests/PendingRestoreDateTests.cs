@@ -59,34 +59,8 @@ public class PendingRestoreDateTests
         Assert.Equal(Date, Storage.OpenDocument(file, "p").PendingRestoreDate);
     }
 
-    /// <summary>
-    /// The guard that matters. Once an output has been found, the start cannot move:
-    /// that output was found below the new height, and moving there would leave the
-    /// wallet holding money from a range it now claims never to have read.
-    /// </summary>
-    [Fact]
-    public async Task AWalletThatFoundMoneyIsNotMoved()
-    {
-        WalletState state = Scanned();
-
-        // The daemon address is unroutable on purpose: refusing happens before the
-        // question is asked, so a wallet with money is never moved by any answer.
-        using Moonlight.Node.DaemonClient unreachable = new(new Uri("http://node.invalid:18081/"));
-
-        Assert.Null(await RestoreHeight.RefineAsync(unreachable, Date, state));
-        Assert.Equal(101UL, state.ScannedHeight);
-    }
-
-    private static WalletState Scanned()
-    {
-        Account account = Account.Create();
-        WalletState state = new(new Scanner(account, new SubaddressIndex(1, 1)), 100);
-
-        state.Restore(new WalletSnapshot(101, [Output(account)], new Dictionary<string, ulong>()));
-
-        Assert.NotEmpty(state.Outputs);
-        return state;
-    }
+    // Settling the date is the sync engine's work now, and the guards around it are
+    // in RestoreDateEngineTests. Here is only what the file has to carry.
 
     private static OwnedOutput Output(Account account)
         => new(100, new byte[32], 0, Crypto.Point.FromSecret(Crypto.Scalar.Random()), 1,

@@ -10,8 +10,19 @@ namespace Moonlight.Wallet.Tests;
 [Collection("log")]
 public sealed class LogTests : IDisposable
 {
+    /// <summary>
+    /// A source nobody else uses, so these tests can be told apart from whatever
+    /// else is logging. The log is global and the rest of the suite runs beside it,
+    /// which made a test that counted lines fail about one run in three.
+    /// </summary>
+    private readonly string source = "test-" + Guid.NewGuid().ToString("N")[..8];
+
     private readonly Level level = Log.Minimum;
     private readonly string? file = Log.File;
+
+    private string Source => source;
+
+    private Entry[] Mine() => [.. Log.Recent().Where(e => e.Source == source)];
 
     public LogTests()
     {
@@ -23,28 +34,28 @@ public sealed class LogTests : IDisposable
     [Fact]
     public void KeepsWhatItIsGiven()
     {
-        Log.Info("node", "hello");
-        Log.Error("sync", "gone");
+        Log.Info(Source, "hello");
+        Log.Error(Source, "gone");
 
-        Entry[] lines = Log.Recent();
+        Entry[] lines = Mine();
 
         Assert.Equal(2, lines.Length);
         Assert.Equal(Level.Info, lines[0].Level);
-        Assert.Equal("node", lines[0].Source);
+        Assert.Equal("hello", lines[0].Message);
         Assert.Equal("gone", lines[1].Message);
     }
 
     [Fact]
     public void QuietLevelsAreDropped()
     {
-        Log.Debug("sync", "a batch");
+        Log.Debug(Source, "a batch");
 
-        Assert.Empty(Log.Recent());
+        Assert.Empty(Mine());
 
         Log.Minimum = Level.Debug;
-        Log.Debug("sync", "a batch");
+        Log.Debug(Source, "a batch");
 
-        Assert.Single(Log.Recent());
+        Assert.Single(Mine());
     }
 
     /// <summary>
@@ -54,9 +65,9 @@ public sealed class LogTests : IDisposable
     [Fact]
     public void AnExceptionKeepsItsType()
     {
-        Log.Error("sync", "catch-up failed", new FormatException("bad blob"));
+        Log.Error(Source, "catch-up failed", new FormatException("bad blob"));
 
-        Entry entry = Assert.Single(Log.Recent());
+        Entry entry = Assert.Single(Mine());
 
         Assert.Contains("FormatException", entry.Message, StringComparison.Ordinal);
         Assert.Contains("bad blob", entry.Message, StringComparison.Ordinal);
@@ -66,13 +77,17 @@ public sealed class LogTests : IDisposable
     [Fact]
     public void TheOldestLinesGo()
     {
-        for (int i = 0; i < Log.Capacity + 50; i++) Log.Info("test", i.ToString(System.Globalization.CultureInfo.InvariantCulture));
+        for (int i = 0; i < Log.Capacity + 50; i++) Log.Info(Source, i.ToString(System.Globalization.CultureInfo.InvariantCulture));
 
-        Entry[] lines = Log.Recent();
+        Entry[] lines = Mine();
 
-        Assert.Equal(Log.Capacity, lines.Length);
-        Assert.Equal("50", lines[0].Message);
+        // Never more than the capacity, the newest survived, and the first fifty are
+        // gone. Not an exact count: the log is global and the rest of the suite is
+        // writing to it at the same time, so some of these were evicted by lines
+        // belonging to somebody else.
+        Assert.True(Log.Recent().Length <= Log.Capacity);
         Assert.Equal((Log.Capacity + 49).ToString(System.Globalization.CultureInfo.InvariantCulture), lines[^1].Message);
+        Assert.DoesNotContain(lines, e => e.Message == "0");
     }
 
     [Fact]
@@ -83,7 +98,7 @@ public sealed class LogTests : IDisposable
 
         try
         {
-            Log.Info("wallet", "opened");
+            Log.Info(Source, "opened");
 
             Assert.Contains("opened", File.ReadAllText(path), StringComparison.Ordinal);
         }
@@ -103,30 +118,35 @@ public sealed class LogTests : IDisposable
     {
         Log.File = Path.Combine(Path.GetTempPath(), "moonlight-missing-" + Guid.NewGuid().ToString("N"), "deep", "log.txt");
 
-        Log.Info("wallet", "opened");
+        Log.Info(Source, "opened");
 
         Assert.Null(Log.File);
-        Assert.Single(Log.Recent());
+        Assert.Single(Mine());
     }
 
     [Fact]
     public void FollowersAreTold()
     {
         List<Entry> seen = [];
-        void Follow(Entry entry) => seen.Add(entry);
+
+        // Only this test's lines: the handler hears everything the suite logs.
+        void Follow(Entry entry)
+        {
+            if (entry.Source == source) lock (seen) seen.Add(entry);
+        }
 
         Log.Written += Follow;
 
         try
         {
-            Log.Info("node", "connected");
+            Log.Info(Source, "connected");
         }
         finally
         {
             Log.Written -= Follow;
         }
 
-        Assert.Equal("connected", Assert.Single(seen).Message);
+        lock (seen) Assert.Equal("connected", Assert.Single(seen).Message);
     }
 
     public void Dispose()

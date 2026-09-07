@@ -7,7 +7,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\src\Core\Core.csproj" />
+    <ProjectReference Include="..\..\src\Core.Http\Core.Http.csproj" />
     <ProjectReference Include="..\..\src\Core.Abi\Core.Abi.csproj" />
   </ItemGroup>
 

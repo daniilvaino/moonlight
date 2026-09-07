@@ -87,35 +87,6 @@ public static class RestoreHeight
     }
 
     /// <summary>
-    /// Replaces an offline estimate with the exact block, once a daemon can be
-    /// reached. Returns the new height, or null when there is nothing to do.
-    /// </summary>
-    /// <remarks>
-    /// Two guards, and both are about not losing money rather than not wasting
-    /// time. A wallet that has already found an output cannot be moved at all: that
-    /// output was found below the new height and the scan that found it would not
-    /// happen again. And the move is only ever forward — the estimate lands early
-    /// by design, so an answer that points backwards means something is wrong, and
-    /// rescanning is not what it would cost.
-    /// </remarks>
-    public static async Task<ulong?> RefineAsync(
-        DaemonClient daemon,
-        DateTimeOffset date,
-        WalletState state,
-        CancellationToken cancellationToken = default)
-    {
-        ArgumentNullException.ThrowIfNull(daemon);
-        ArgumentNullException.ThrowIfNull(state);
-
-        if (state.Outputs.Any()) return null;
-
-        ulong exact = await ForDateAsync(daemon, date, cancellationToken).ConfigureAwait(false);
-        if (exact <= state.ScannedHeight) return null;
-
-        state.SkipTo(exact);
-        return exact;
-    }
-
     /// <summary>
     /// The exact answer, from the chain itself: the first block whose timestamp is
     /// at or after the date. Binary search over block headers, the same way wallet2

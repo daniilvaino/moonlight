@@ -1,4 +1,5 @@
 using Moonlight.Core;
+using Moonlight.Core.Http;
 using Moonlight.Diagnostics;
 using Moonlight.Node;
 using Moonlight.Serialization;
@@ -38,7 +39,7 @@ internal static class Program
         Log.File = Flag(args, "log") ?? args[0] + ".log";
         if (args.Contains("--debug")) Log.Minimum = Level.Debug;
 
-        using WalletSession wallet = WalletSession.Open(
+        using WalletConnection wallet = WalletConnection.Open(
             args[0], Flag(args, "password") ?? Prompt(), Flag(args, "daemon"));
 
         Account account = wallet.Account;

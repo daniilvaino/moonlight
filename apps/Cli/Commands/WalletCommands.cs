@@ -1,4 +1,5 @@
 using Moonlight.Core;
+using Moonlight.Core.Http;
 using Moonlight.Node;
 using Moonlight.Wallet;
 
@@ -82,7 +83,7 @@ internal static class WalletCommands
 
     public static int ShowBalance(string[] args)
     {
-        using WalletSession wallet = OpenSession(args);
+        using WalletConnection wallet = OpenConnection(args);
 
         ulong at = Amounts.LastScanned(wallet.State.ScannedHeight);
         Balance balance = wallet.Balance();
@@ -101,8 +102,8 @@ internal static class WalletCommands
     }
 
     /// <summary>An open wallet, with its scanner, its state and its node already arranged.</summary>
-    public static WalletSession OpenSession(string[] args)
-        => WalletSession.Open(Options.File(args), Options.Password(args), Options.Optional(args, "daemon"));
+    public static WalletConnection OpenConnection(string[] args)
+        => WalletConnection.Open(Options.File(args), Options.Password(args), Options.Optional(args, "daemon"));
 
     /// <summary>The file alone, for the commands that only want the keys in it.</summary>
     public static WalletFile Open(string[] args)

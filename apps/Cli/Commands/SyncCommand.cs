@@ -1,4 +1,5 @@
 using Moonlight.Core;
+using Moonlight.Core.Http;
 using Moonlight.Wallet;
 
 namespace Moonlight.Cli.Commands;
@@ -8,7 +9,7 @@ internal static class SyncCommand
 {
     public static async Task<int> Run(string[] args)
     {
-        using WalletSession wallet = WalletCommands.OpenSession(args);
+        using WalletConnection wallet = WalletCommands.OpenConnection(args);
 
         DateTimeOffset started = DateTimeOffset.UtcNow;
         ulong from = wallet.State.ScannedHeight;

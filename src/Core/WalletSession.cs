@@ -17,11 +17,9 @@ namespace Moonlight.Core;
 /// and they had already drifted — one saved the pending date on exit and the other
 /// did not.
 /// </remarks>
-public sealed class WalletSession : IDisposable
+public sealed class WalletSession
 {
     private readonly string path;
-    private HttpSync sync;
-    private bool disposed;
 
     private WalletSession(string path, WalletFile file, Uri daemon)
     {
@@ -35,7 +33,10 @@ public sealed class WalletSession : IDisposable
         State = new WalletState(new Scanner(file.Account, file.Lookahead), file.Snapshot.ScannedHeight);
         State.Restore(file.Snapshot);
 
-        sync = new HttpSync(daemon, State) { PendingRestoreDate = file.PendingRestoreDate };
+        // One engine per wallet, owned here. Whoever drives it — a connection over
+        // HTTP, or a host through the C interface — moves the same one, so what it
+        // settles is what a save writes down.
+        Engine = new SyncEngine(State) { PendingRestoreDate = file.PendingRestoreDate };
     }
 
     public Account Account { get; }
@@ -43,6 +44,9 @@ public sealed class WalletSession : IDisposable
     public SubaddressIndex Lookahead { get; }
 
     public WalletState State { get; }
+
+    /// <summary>Following the chain, without the socket. Drive it yourself, or let RunAsync do it.</summary>
+    public SyncEngine Engine { get; }
 
     /// <summary>The file as it was opened. Its settings are the ones a save carries forward.</summary>
     public WalletFile File { get; }
@@ -81,41 +85,16 @@ public sealed class WalletSession : IDisposable
         return new WalletSession(path, file, address);
     }
 
-    /// <summary>Catches up once and returns where it got to.</summary>
-    public Task<SyncProgress> CatchUpAsync(
-        Action<SyncProgress>? onProgress = null,
-        CancellationToken cancellationToken = default)
-        => sync.CatchUpAsync(onProgress, cancellationToken);
-
     /// <summary>
-    /// Stays caught up until cancelled. This is what makes a wallet warm: it is
-    /// current when its owner looks at it, not when they remember to ask.
-    /// </summary>
-    public Task RunAsync(
-        Action<SyncProgress>? onProgress = null,
-        Action<Exception>? onError = null,
-        TimeSpan? interval = null,
-        CancellationToken cancellationToken = default)
-        => sync.RunAsync(onProgress, onError, interval, cancellationToken);
-
-    /// <summary>Asks the loop to look now rather than at the end of its interval.</summary>
-    public void RefreshNow() => sync.RefreshNow();
-
-    /// <summary>
-    /// Points the wallet at another node. The scan continues from where it stands —
-    /// a different node is not a reason to read the chain again — and the restore
-    /// date travels with it, since changing node is not an answer to it.
+    /// Records which node this wallet is using, so a save writes it down. Nothing
+    /// here opens a connection: how bytes reach that address is the business of
+    /// whoever is driving the engine.
     /// </summary>
     public void UseDaemon(Uri daemon)
     {
         ArgumentNullException.ThrowIfNull(daemon);
 
-        DateTimeOffset? pending = sync.PendingRestoreDate;
-
-        sync.Dispose();
         Daemon = daemon;
-        sync = new HttpSync(daemon, State) { PendingRestoreDate = pending };
-
         Log.Info("node", $"daemon {daemon}");
     }
 
@@ -141,14 +120,6 @@ public sealed class WalletSession : IDisposable
             State.Snapshot(),
             Daemon.ToString(),
             document.SettingsFingerprint(),
-            sync.PendingRestoreDate));
-    }
-
-    public void Dispose()
-    {
-        if (disposed) return;
-
-        disposed = true;
-        sync.Dispose();
+            Engine.PendingRestoreDate));
     }
 }

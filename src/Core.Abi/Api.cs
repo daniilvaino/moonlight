@@ -31,14 +31,12 @@ public static unsafe class Api
     /// <summary>The interface version, so a host can refuse a library it does not know.</summary>
     private const int Version = 1;
 
-    
     public static int AbiVersion() => Version;
 
     /// <summary>
     /// Opens a wallet file. The handle it writes back is what every other call
     /// takes, and must be closed with moonlight_wallet_close.
     /// </summary>
-    
     public static Status WalletOpen(byte* path, byte* password, nint* handle)
     {
         if (path is null || password is null || handle is null) return Status.BadArgument;
@@ -58,24 +56,20 @@ public static unsafe class Api
         }
     }
 
-    
     public static Status WalletClose(nint handle)
     {
-        if (Handles.Release(handle) is not Session session) return Status.BadArgument;
-
-        session.Wallet.Dispose();
-        return Status.Ok;
+        // Releasing the handle is the whole of it: a session holds no socket and no
+        // thread, which is what the host was given the loop for.
+        return Handles.Release(handle) is Session ? Status.Ok : Status.BadArgument;
     }
 
     /// <summary>The wallet's main address, written as UTF-8 with a terminating zero.</summary>
-    
     public static Status WalletAddress(nint handle, byte* buffer, int capacity, int* needed)
         => Handles.Lookup<Session>(handle) is not Session session
             ? Status.BadArgument
             : Write(session.Wallet.Account.Address.Encode(), buffer, capacity, needed);
 
     /// <summary>Total and unlocked, in atomic units.</summary>
-    
     public static Status WalletBalance(nint handle, ulong* total, ulong* unlocked)
     {
         if (Handles.Lookup<Session>(handle) is not Session session) return Status.BadArgument;
@@ -96,7 +90,6 @@ public static unsafe class Api
         }
     }
 
-    
     public static Status WalletScannedHeight(nint handle, ulong* height)
     {
         if (Handles.Lookup<Session>(handle) is not Session session) return Status.BadArgument;
@@ -106,7 +99,6 @@ public static unsafe class Api
         return Status.Ok;
     }
 
-    
     public static Status WalletSave(nint handle)
     {
         if (Handles.Lookup<Session>(handle) is not Session session) return Status.BadArgument;
@@ -127,7 +119,6 @@ public static unsafe class Api
     /// Done when the sweep is finished, at which point moonlight_sync_restart begins
     /// another.
     /// </summary>
-    
     public static Status SyncNext(
         nint handle,
         byte* path, int pathCapacity, int* pathNeeded,
@@ -153,7 +144,6 @@ public static unsafe class Api
     }
 
     /// <summary>The answer to the last request.</summary>
-    
     public static Status SyncSupply(nint handle, byte* response, int length)
     {
         if (Handles.Lookup<Session>(handle) is not Session session) return Status.BadArgument;
@@ -178,14 +168,12 @@ public static unsafe class Api
     /// The last request could not be sent. Answers Ok when the engine can carry on
     /// without it and Failed when the caller has to deal with it.
     /// </summary>
-    
     public static Status SyncFailed(nint handle)
         => Handles.Lookup<Session>(handle) is not Session session
             ? Status.BadArgument
             : session.Engine.Failed(new IOException("the host could not send the request")) ? Status.Ok : Status.Failed;
 
     /// <summary>Begins another sweep, which is what a warm wallet does every interval.</summary>
-    
     public static Status SyncRestart(nint handle)
     {
         if (Handles.Lookup<Session>(handle) is not Session session) return Status.BadArgument;
@@ -194,7 +182,6 @@ public static unsafe class Api
         return Status.Ok;
     }
 
-    
     public static Status SyncProgress(nint handle, ulong* scanned, ulong* chainHeight, int* outputs)
     {
         if (Handles.Lookup<Session>(handle) is not Session session) return Status.BadArgument;
@@ -214,7 +201,7 @@ public static unsafe class Api
     {
         public WalletSession Wallet { get; } = wallet;
 
-        public SyncEngine Engine { get; } = new(wallet.State);
+        public SyncEngine Engine => Wallet.Engine;
     }
 
     private static string Text(byte* value) => Marshal.PtrToStringUTF8((nint)value) ?? "";
