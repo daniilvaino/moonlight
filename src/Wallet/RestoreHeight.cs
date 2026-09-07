@@ -87,7 +87,6 @@ public static class RestoreHeight
     }
 
     /// <summary>
-    /// <summary>
     /// The exact answer, from the chain itself: the first block whose timestamp is
     /// at or after the date. Binary search over block headers, the same way wallet2
     /// does it.

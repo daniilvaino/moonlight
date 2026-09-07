@@ -8,7 +8,7 @@ public sealed record ClsagSignature(Scalar[] S, Scalar C1, Point D, Point I);
 
 /// <summary>
 /// Concise Linkable Spontaneous Anonymous Group signatures — what Monero has
-/// signed with since v12. One ring proves two things at once: that the signer
+/// signed with since v13. One ring proves two things at once: that the signer
 /// owns one of the output keys, and that the same signer knows the blinding of
 /// the matching commitment.
 /// </summary>

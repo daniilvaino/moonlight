@@ -8,9 +8,9 @@ using Xunit;
 namespace Moonlight.RingCT.Tests;
 
 /// <summary>
-/// The range proof monero put in a real transaction, verified here. There is no
-/// prover on this side yet, so this is the only kind of test that means anything:
-/// a self-made proof would only prove the code agrees with itself.
+/// The range proof monero put in a real transaction, verified here. This is the
+/// anchor the prover tests lean on: a self-made proof only proves the code agrees
+/// with itself, so the verifier is pinned to a proof monero made first.
 /// </summary>
 public class BulletproofPlusTests
 {

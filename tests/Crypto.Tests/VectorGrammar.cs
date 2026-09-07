@@ -2,9 +2,9 @@ namespace Moonlight.Crypto.Tests;
 
 /// <summary>
 /// Token shape of each operation in tests.txt, transcribed from the reference
-/// runner (monero/tests/crypto/main.cpp). Three operations are variable-length:
-/// the two ring-signature ones size themselves from a count, and three others
-/// append an expected value only when the boolean before it is true.
+/// runner (monero/tests/crypto/main.cpp). Five operations are irregular: the two
+/// ring-signature ones size themselves from a count, and three others append an
+/// expected value only when the boolean before it is true.
 /// </summary>
 public static class VectorGrammar
 {

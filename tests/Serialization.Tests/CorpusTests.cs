@@ -5,9 +5,9 @@ using Xunit;
 namespace Moonlight.Serialization.Tests;
 
 /// <summary>
-/// Real transactions the parser will have to eat byte for byte. Until TxParser
-/// exists these assert the corpus itself is intact — a silently truncated vector
-/// file is the one failure that makes every later test pass for free.
+/// Real transactions the parser eats byte for byte. These assert the corpus
+/// itself is intact — a silently truncated vector file is the one failure that
+/// makes every later test pass for free.
 /// </summary>
 public class CorpusTests
 {

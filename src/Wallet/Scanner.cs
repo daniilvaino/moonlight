@@ -48,8 +48,8 @@ public sealed record OwnedOutput(
 /// </summary>
 /// <remarks>
 /// Ported from <c>is_out_to_acc</c> and the amount handling around it. Two things
-/// make it fast enough to be usable: view tags reject fifteen outputs in sixteen
-/// before any derivation, and the subaddress table turns a search into a lookup.
+/// make it fast enough to be usable: view tags reject 255 outputs in 256 before
+/// any per-output curve work, and the subaddress table turns a search into a lookup.
 /// </remarks>
 public sealed class Scanner
 {
@@ -135,7 +135,8 @@ public sealed class Scanner
         byte[] derivation = new byte[32];
         if (!RingSig.generate_key_derivation(transactionKey, viewSecret.ToBytes(), derivation)) return false;
 
-        // The cheap rejection, before any curve operation.
+        // The cheap rejection: the derivation above is once per transaction,
+        // everything below runs per output.
         if (viewTag is not null && ViewTag.Derive(derivation, (ulong)index) != viewTag) return false;
         PassedViewTag++;
 
