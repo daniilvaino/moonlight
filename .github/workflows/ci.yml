@@ -19,6 +19,11 @@ jobs:
         # covers the linux-arm64 the flake claims to support, which nothing built
         # before this.
         #
+        # win-arm64 is here because a release ships it. A platform that is only ever
+        # built on release day is a platform whose first failure happens with a tag
+        # already pushed — and this one has somewhere specific to fail, since
+        # NativeAOT links through MSVC and needs the arm64 build tools present.
+        #
         # The identifier is spelled out because a shared library needs one given:
         # publishing an application infers it, publishing a NativeLib refuses to.
         include:
@@ -28,13 +33,15 @@ jobs:
             rid: linux-arm64
           - os: windows-latest
             rid: win-x64
+          - os: windows-11-arm
+            rid: win-arm64
           - os: macos-latest
             rid: osx-arm64
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: actions/setup-dotnet@v4
+      - uses: actions/setup-dotnet@v5
         with:
           global-json-file: global.json
 
