@@ -2,9 +2,10 @@
   <Folder Name="/apps/">
     <Project Path="apps/Cli/Cli.csproj" />
     <Project Path="apps/Gui.Demo/Gui.Demo.csproj" />
+  </Folder>
+  <Folder Name="/apps/Tui/">
     <Project Path="apps/Tui/Tui.csproj" />
   </Folder>
-  <Folder Name="/apps/Tui/" />
   <Folder Name="/apps/Tui/Vendor/">
     <Project Path="apps/Tui/Vendor/TerminalGui/TerminalGui.csproj" />
   </Folder>
