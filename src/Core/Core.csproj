@@ -3,6 +3,7 @@
   <PropertyGroup>
     <AssemblyName>Moonlight.Core</AssemblyName>
     <RootNamespace>Moonlight.Core</RootNamespace>
+    <Description>Sync engine, open wallet and amounts, with no I/O: the host sends what the engine asks for. Everything an application needs.</Description>
   </PropertyGroup>
 
   <!-- Everything an application needs, so an application needs nothing else. The

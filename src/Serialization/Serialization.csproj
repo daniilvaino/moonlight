@@ -3,6 +3,7 @@
   <PropertyGroup>
     <AssemblyName>Moonlight.Serialization</AssemblyName>
     <RootNamespace>Moonlight.Serialization</RootNamespace>
+    <Description>Transaction and block parsers, ids, Merkle root, Epee encoding.</Description>
   </PropertyGroup>
 
   <ItemGroup>

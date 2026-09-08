@@ -3,6 +3,7 @@
   <PropertyGroup>
     <AssemblyName>Moonlight.Wallet</AssemblyName>
     <RootNamespace>Moonlight.Wallet</RootNamespace>
+    <Description>Keys, accounts, addresses, subaddresses, scanner, restore heights, encrypted storage.</Description>
   </PropertyGroup>
 
   <ItemGroup>

@@ -3,6 +3,7 @@
   <PropertyGroup>
     <AssemblyName>Moonlight.Diagnostics</AssemblyName>
     <RootNamespace>Moonlight.Diagnostics</RootNamespace>
+    <Description>The log.</Description>
   </PropertyGroup>
 
 </Project>

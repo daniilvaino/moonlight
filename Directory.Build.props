@@ -31,4 +31,42 @@
     <IsSterile Condition="$([System.String]::Copy('$(MSBuildProjectDirectory)').Replace('\','/').Contains('/apps/Tui'))">true</IsSterile>
   </PropertyGroup>
 
+  <!-- Version: one number for the whole repository. The tag must match it, and so
+       must apps/Cli/Program.cs and flake.nix — the nuget workflow checks all three. -->
+  <PropertyGroup>
+    <Version>0.0.1</Version>
+  </PropertyGroup>
+
+  <!-- Packages: only the libraries under src/. Apps, tests, the native library and
+       the vendored fork are not packages. Core.Abi opts out in its own project. -->
+  <PropertyGroup>
+    <IsPackable>false</IsPackable>
+    <IsPackable Condition="$([System.String]::Copy('$(MSBuildProjectDirectory)').Replace('\','/').Contains('/src/'))">true</IsPackable>
+
+    <Authors>daniilvaino</Authors>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageProjectUrl>https://github.com/daniilvaino/moonlight</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/daniilvaino/moonlight</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageTags>monero wallet cryptonote ringct</PackageTags>
+    <PackageIcon>favicon-128.png</PackageIcon>
+    <PackageReadmeFile>nuget-readme.md</PackageReadmeFile>
+
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+
+    <!-- SourceLink is part of the SDK: no PackageReference, so the purity gate is
+         untouched. CI only, so the hermetic Nix build (no .git) sees no change. -->
+    <PublishRepositoryUrl Condition="'$(CI)' == 'true'">true</PublishRepositoryUrl>
+    <EmbedUntrackedSources Condition="'$(CI)' == 'true'">true</EmbedUntrackedSources>
+  </PropertyGroup>
+
+  <ItemGroup Condition="'$(IsPackable)' == 'true'">
+    <None Include="$(MSBuildThisFileDirectory)media/favicon-128.png" Pack="true" PackagePath="/" Visible="false" />
+    <None Include="$(MSBuildThisFileDirectory)docs/nuget-readme.md"  Pack="true" PackagePath="/" Visible="false" />
+    <!-- MIT: the notice travels with the copy. Relative to each project; empty where
+         there is no Vendor/ (Crypto.Ed25519, Crypto and Wallet have one). -->
+    <None Include="Vendor/**/LICENSE*" Pack="true" PackagePath="licenses/" Visible="false" />
+  </ItemGroup>
+
 </Project>

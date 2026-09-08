@@ -4,6 +4,7 @@
     <AssemblyName>Moonlight.Crypto.Ed25519</AssemblyName>
     <RootNamespace>Moonlight.Crypto.Ed25519</RootNamespace>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <Description>ref10 field, group and scalar arithmetic.</Description>
   </PropertyGroup>
 
 </Project>

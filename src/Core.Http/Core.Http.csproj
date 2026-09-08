@@ -3,6 +3,7 @@
   <PropertyGroup>
     <AssemblyName>Moonlight.Core.Http</AssemblyName>
     <RootNamespace>Moonlight.Core.Http</RootNamespace>
+    <Description>The Moonlight Monero wallet driven over HttpClient: sync engine, open wallet, daemon client. Start here for .NET applications.</Description>
   </PropertyGroup>
 
   <!-- The socket, kept out of Core so that a library linked into somebody else's

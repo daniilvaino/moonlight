@@ -5,6 +5,9 @@
     <RootNamespace>Moonlight.Core.Abi</RootNamespace>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
 
+    <!-- A native shared library, not a package. -->
+    <IsPackable>false</IsPackable>
+
     <!-- Both, and in the project rather than on the command line: NativeLib alone
          produces an ordinary managed publish that looks like it worked. -->
     <PublishAot>true</PublishAot>

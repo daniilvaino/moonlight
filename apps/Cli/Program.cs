@@ -69,7 +69,7 @@ internal static class Program
 
     private static int Version()
     {
-        Console.WriteLine("moonlight 0.1.0");
+        Console.WriteLine("moonlight 0.0.1");
         return 0;
     }
 }

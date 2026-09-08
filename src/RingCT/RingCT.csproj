@@ -3,6 +3,7 @@
   <PropertyGroup>
     <AssemblyName>Moonlight.RingCT</AssemblyName>
     <RootNamespace>Moonlight.RingCT</RootNamespace>
+    <Description>Pedersen commitments, ECDH, CLSAG, Bulletproofs+ and multi-exponentiation.</Description>
   </PropertyGroup>
 
   <ItemGroup>

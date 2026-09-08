@@ -3,6 +3,7 @@
   <PropertyGroup>
     <AssemblyName>Moonlight.Node</AssemblyName>
     <RootNamespace>Moonlight.Node</RootNamespace>
+    <Description>monerod JSON-RPC and /getblocks.bin over Epee.</Description>
   </PropertyGroup>
 
   <ItemGroup>

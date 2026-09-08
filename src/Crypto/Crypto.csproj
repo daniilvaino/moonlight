@@ -3,6 +3,7 @@
   <PropertyGroup>
     <AssemblyName>Moonlight.Crypto</AssemblyName>
     <RootNamespace>Moonlight.Crypto</RootNamespace>
+    <Description>Scalar and Point, Keccak (legacy pad), VarInt, view tags, derivations, key images, CryptoNote signatures.</Description>
   </PropertyGroup>
 
   <ItemGroup>
