@@ -105,6 +105,18 @@ public sealed class LogTests : IDisposable
         finally
         {
             Log.File = null;
+
+            // The log's file is global, so while this test has one set every other
+            // test in the suite is appending to it as well, from its own thread. An
+            // append already under way still holds the file open, and Windows refuses
+            // to delete a file that something has open — the other platforms allow it,
+            // which is why this only ever failed there, and only sometimes.
+            //
+            // Recent() takes the same lock Append is called under: reaching this line
+            // means any append in flight has finished, and none can start now that the
+            // path is cleared.
+            Log.Recent();
+
             if (File.Exists(path)) File.Delete(path);
         }
     }
