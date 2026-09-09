@@ -16,6 +16,7 @@
     <Project Path="src/Core/Core.csproj" />
     <Project Path="src/Crypto/Crypto.csproj" />
     <Project Path="src/Diagnostics/Diagnostics.csproj" />
+    <Project Path="src/Moonlight/Moonlight.csproj" />
     <Project Path="src/Node/Node.csproj" />
     <Project Path="src/RingCT/RingCT.csproj" />
     <Project Path="src/Serialization/Serialization.csproj" />

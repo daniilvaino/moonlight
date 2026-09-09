@@ -1,0 +1,47 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <AssemblyName>Moonlight</AssemblyName>
+    <RootNamespace>Moonlight</RootNamespace>
+    <Description>Every Moonlight layer in one assembly, for hosts that would rather reference a single file than nine. Not interchangeable with the nine packages: the types are different types.</Description>
+
+    <!-- Not a package (release plan, D10). On nuget.org this would sit beside the nine
+         as a tenth, and a reader would have to work out which to install; in one
+         application the two are not interchangeable, because Moonlight.Core.SyncEngine
+         from the package and the one compiled in here are different types. -->
+    <IsPackable>false</IsPackable>
+
+    <!-- Crypto.Ed25519 is the only layer that needs it, and it needs it everywhere
+         its files are compiled — including here. -->
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+
+  <!--
+    The nine layers, compiled from their sources rather than merged afterwards. An
+    IL merge would leave the assembly identities inside and rewrite references; this
+    is one compilation, so what comes out is one assembly by construction.
+
+    No ProjectReference and no PackageReference: a project under src/ is sterile, and
+    referencing the layers would defeat the point anyway — the output would then need
+    all nine beside it, which is the thing this exists to avoid.
+
+    obj and bin are excluded because the SDK writes an AssemblyInfo.cs into each
+    layer's obj/, and nine of those in one compilation is nine sets of duplicate
+    assembly attributes.
+
+    Link only changes how the files are grouped in an editor; on disk they stay where
+    they are, so the .editorconfig each vendored tree carries still applies to them.
+  -->
+  <ItemGroup>
+    <Compile Include="../Crypto.Ed25519/**/*.cs" Exclude="../Crypto.Ed25519/obj/**;../Crypto.Ed25519/bin/**" Link="Crypto.Ed25519/%(RecursiveDir)%(Filename)%(Extension)" />
+    <Compile Include="../Crypto/**/*.cs" Exclude="../Crypto/obj/**;../Crypto/bin/**" Link="Crypto/%(RecursiveDir)%(Filename)%(Extension)" />
+    <Compile Include="../Serialization/**/*.cs" Exclude="../Serialization/obj/**;../Serialization/bin/**" Link="Serialization/%(RecursiveDir)%(Filename)%(Extension)" />
+    <Compile Include="../RingCT/**/*.cs" Exclude="../RingCT/obj/**;../RingCT/bin/**" Link="RingCT/%(RecursiveDir)%(Filename)%(Extension)" />
+    <Compile Include="../Node/**/*.cs" Exclude="../Node/obj/**;../Node/bin/**" Link="Node/%(RecursiveDir)%(Filename)%(Extension)" />
+    <Compile Include="../Wallet/**/*.cs" Exclude="../Wallet/obj/**;../Wallet/bin/**" Link="Wallet/%(RecursiveDir)%(Filename)%(Extension)" />
+    <Compile Include="../Diagnostics/**/*.cs" Exclude="../Diagnostics/obj/**;../Diagnostics/bin/**" Link="Diagnostics/%(RecursiveDir)%(Filename)%(Extension)" />
+    <Compile Include="../Core/**/*.cs" Exclude="../Core/obj/**;../Core/bin/**" Link="Core/%(RecursiveDir)%(Filename)%(Extension)" />
+    <Compile Include="../Core.Http/**/*.cs" Exclude="../Core.Http/obj/**;../Core.Http/bin/**" Link="Core.Http/%(RecursiveDir)%(Filename)%(Extension)" />
+  </ItemGroup>
+
+</Project>
