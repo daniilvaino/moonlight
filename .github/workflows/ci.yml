@@ -65,6 +65,12 @@ jobs:
       # function moonlight.h declares, and drives a sweep through them — so a
       # renamed entry point or a header that has drifted fails here rather than in
       # somebody else's application.
+      # What ships is libmoonlight.*, one name in both build modes and on every
+      # platform — on Windows because moonlight.dll beside moonlight.exe would leave
+      # the two sharing a single moonlight.pdb. NativeAOT publishes it under the
+      # project's own name and the rename happens when a release is packed, so it
+      # happens here too: the check is worth more against the name that ships than
+      # against the name that is built.
       - name: Check the C interface
         shell: bash
         run: |
@@ -72,4 +78,15 @@ jobs:
             \( -name 'Moonlight.Core.Abi.dll' -o -name 'Moonlight.Core.Abi.so' -o -name 'Moonlight.Core.Abi.dylib' \) \
             | head -1)
           test -n "$library" || { echo "no shared library was published"; exit 1; }
-          dotnet run --project tests/Abi.Native -c Release -- "$library" src/Core.Abi/moonlight.h
+
+          shipped="$(dirname "$library")/libmoonlight.${library##*.}"
+          mv "$library" "$shipped"
+
+          # A dylib carries the name it was linked under, and renaming the file does
+          # not change it: a consumer would be told to load the old one.
+          if [ "${library##*.}" = dylib ]; then
+            install_name_tool -id @rpath/libmoonlight.dylib "$shipped"
+            otool -L "$shipped" | head -2
+          fi
+
+          dotnet run --project tests/Abi.Native -c Release -- "$shipped" src/Core.Abi/moonlight.h

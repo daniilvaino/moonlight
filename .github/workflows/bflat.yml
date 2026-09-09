@@ -117,14 +117,19 @@ jobs:
       - name: Check the C interface
         run: dotnet run --project tests/Abi.Native -c Release -- libmoonlight.so src/Core.Abi/moonlight.h
 
+      # -d BFLAT is what makes `version` say which build it is. Without it the binary
+      # would answer "nativeaot" — a wrong answer rather than a missing one, and one
+      # nothing would have caught, which is why the output is asserted and not printed.
       - name: The command line
         run: |
           ./bflat/bflat build \
             $(find src apps/Cli -name '*.cs' -not -path '*/obj/*' -not -path '*/bin/*' -not -path '*/Core.Abi/*') \
             GlobalUsings.cs \
+            -d BFLAT \
             -o moonlight \
             --stdlib DotNet --no-reflection --no-globalization --no-stacktrace-data
           ./moonlight version
+          ./moonlight version | grep -qF '(bflat)' || { echo "the bflat build does not say so"; exit 1; }
 
       # Terminal.Gui uses C# 14 extension members, which bflat's own compiler is too
       # old to parse. The language moved and the IL did not, so it is built with our

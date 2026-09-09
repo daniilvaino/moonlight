@@ -10,6 +10,11 @@ modes are one build per operating system and architecture.
 | NativeAOT | `dotnet publish -r <rid>` | the two applications, and `Core.Abi` as a shared library | yes |
 | bflat | `bflat build … --stdlib DotNet` | the same three, smaller | yes |
 
+`moonlight version` says which of the three it is — `moonlight 0.0.1 (nativeaot)`,
+`(bflat)` or `(managed)` — so an artifact can be identified once it is out of the
+archive it came in. bflat is told with `-d BFLAT` on its command line; the other two
+follow the `PublishAot` property, which the managed publish turns off.
+
 Measured on `win-x64`, and each one run rather than only built:
 
 | | NativeAOT | bflat |
@@ -63,6 +68,22 @@ publish that looks like it worked.
 The `-r` is required here and not for the applications. Publishing an application
 with `PublishAot` infers the host's identifier; publishing a shared library refuses
 to, with `RuntimeIdentifier is required for native compilation`.
+
+It publishes as `Moonlight.Core.Abi.{so,dylib,dll}`, but what ships is
+`libmoonlight.{so,dylib,dll}` — one name in both build modes and on every platform.
+On Windows that matters beyond tidiness: `moonlight.dll` beside `moonlight.exe`
+would leave the two sharing a single `moonlight.pdb`. bflat names its output
+directly with `-o`; the NativeAOT build is renamed when a release is packed rather
+than in the project, and `ci` renames it the same way before checking the C
+interface, so the check runs against the name that ships.
+
+Renaming a dylib is not only a rename. The published file carries an install name
+of `bin/Release/…/Moonlight.Core.Abi.dylib`, which survives the move and would send
+a consumer looking for a library that is no longer there, so packing sets it:
+
+```sh
+install_name_tool -id @rpath/libmoonlight.dylib libmoonlight.dylib
+```
 
 On Windows the link step shells out to `vswhere.exe` by name. It is installed at
 `C:\Program Files (x86)\Microsoft Visual Studio\Installer`, which is not on PATH in
