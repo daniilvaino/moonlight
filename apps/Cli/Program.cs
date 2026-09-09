@@ -69,7 +69,34 @@ internal static class Program
 
     private static int Version()
     {
-        Console.WriteLine("moonlight 0.0.1");
+        Console.WriteLine($"moonlight 0.0.1 ({Mode})");
         return 0;
     }
+
+    /// <summary>
+    /// Which of the three builds this is. All three are answered at compile time,
+    /// because that is when the answer is decided: bflat defines its own symbol, and
+    /// NATIVEAOT follows the PublishAot property, which the managed publish turns off.
+    /// </summary>
+    /// <remarks>
+    /// Two run-time answers were tried first and both were wrong.
+    /// RuntimeFeature.IsDynamicCodeCompiled looks like the question and is not:
+    /// PublishAot writes IsDynamicCodeSupported=false into the managed runtimeconfig
+    /// too, so a managed build called itself NativeAOT. Assembly.Location does
+    /// separate them — it is empty in a native image — but the single-file analyzer
+    /// refuses it, and silencing an AOT analyzer to ask an AOT question is the wrong
+    /// trade in a project built around them.
+    ///
+    /// One inaccuracy is left on purpose: PublishAot states intent, so a plain
+    /// `dotnet build` carries NATIVEAOT while producing a managed assembly. Every
+    /// artifact a release ships answers correctly, which is what the string is for.
+    /// </remarks>
+    private static string Mode =>
+#if BFLAT
+        "bflat";
+#elif NATIVEAOT
+        "nativeaot";
+#else
+        "managed";
+#endif
 }

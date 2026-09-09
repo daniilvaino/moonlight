@@ -33,7 +33,9 @@ jobs:
             tag="${GITHUB_REF_NAME#v}"
             [ "$tag" = "$props" ] || { echo "tag $tag != Directory.Build.props $props"; exit 1; }
           fi
-          grep -qF "moonlight $props\"" apps/Cli/Program.cs || { echo "Program.cs != $props"; exit 1; }
+          # The version command prints the build mode after the number, so the number
+          # is followed by a space and a bracket rather than by the closing quote.
+          grep -qF "moonlight $props (" apps/Cli/Program.cs || { echo "Program.cs != $props"; exit 1; }
           grep -qF "version = \"$props\"" flake.nix         || { echo "flake.nix != $props"; exit 1; }
           echo "VERSION=$props" >> "$GITHUB_ENV"
 

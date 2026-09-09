@@ -9,6 +9,13 @@
     <ApplicationIcon>../../media/favicon.ico</ApplicationIcon>
   </PropertyGroup>
 
+  <!-- `moonlight version` reports which build it is. bflat is told with -d BFLAT on
+       its own command line; here the SDK property is the truth, and the managed
+       publish for the release archive turns it off with -p:PublishAot=false. -->
+  <PropertyGroup Condition="'$(PublishAot)' == 'true'">
+    <DefineConstants>$(DefineConstants);NATIVEAOT</DefineConstants>
+  </PropertyGroup>
+
   <ItemGroup>
     <ProjectReference Include="..\..\src\Core.Http\Core.Http.csproj" />
   </ItemGroup>
