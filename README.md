@@ -18,6 +18,54 @@ No P/Invoke, no native binaries, no NuGet packages in the parts that hold keys �
 
 **Status: early.** Crypto, serialization, the daemon client, RingCT and a scanning wallet are in. The TUI syncs a wallet to the mainnet tip — pruned blocks, so the proofs a scan never reads are not fetched — and finds real payments to its own addresses. The CLSAG signatures and the Bulletproof+ range proof of a real transaction verify against this code, and it reads that transaction's change amount back. All of it is also a linkable library with a C interface, so a user interface in any language can drive the same wallet. What is missing is the other half of spending: decoy selection, fees and the transaction builder. Nothing here spends money yet.
 
+## Install
+
+Nothing to install: every archive holds `moonlight`, `moonlight-tui`, the shared library `libmoonlight.*` with its header, and the licences. Unpack it and run it. From [the latest release](https://github.com/daniilvaino/moonlight/releases/latest):
+
+| platform | archive | also built by bflat |
+|---|---|---|
+| Linux x64 | `moonlight-<version>-linux-x64.tar.gz` | yes |
+| Linux arm64 | `moonlight-<version>-linux-arm64.tar.gz` | yes |
+| Windows x64 | `moonlight-<version>-win-x64.zip` | yes |
+| Windows arm64 | `moonlight-<version>-win-arm64.zip` | no — it builds, and it does not start: [docs/build-modes.md](docs/build-modes.md) |
+| macOS, Apple silicon | `moonlight-<version>-osx-arm64.tar.gz` | no |
+
+Intel Macs are not built. The bflat archives are the same wallet from a different compiler and a much smaller one — `-bflat` in the name; either is the wallet, and the plain one is the answer if you have no reason to prefer the other.
+
+Four more things travel with a release. `moonlight-gui-demo-<version>-<platform>` is the interface on made-up data — a demonstration, not a wallet, and it is the one artifact carrying somebody else's binaries. `moonlight-<version>-managed.zip` is one build for every platform, needing a .NET 8 runtime and starting `dotnet app/moonlight.dll`. `…-symbols` are the debug symbols, apart because most people downloading a wallet do not want them. `moonlight-<version>-src.tar.gz` is the tag's tree.
+
+Check what you downloaded against `SHA256SUMS`, which covers every file on the page:
+
+```sh
+sha256sum   --ignore-missing -c SHA256SUMS   # Linux
+shasum -a 256 --ignore-missing -c SHA256SUMS # macOS
+```
+
+```powershell
+(Get-FileHash moonlight-<version>-win-x64.zip).Hash   # compare with its line in SHA256SUMS
+```
+
+Nothing is code-signed yet, so macOS holds a downloaded archive in quarantine until told otherwise — `xattr -dr com.apple.quarantine moonlight-<version>-osx-arm64` on the unpacked directory.
+
+### As a library
+
+Nine packages, and referencing the top one brings the rest:
+
+```sh
+dotnet add package Moonlight.Core.Http --version <version>
+```
+
+`Moonlight.Core.Http` is the wallet with a socket attached. Take `Moonlight.Core` instead to drive the sync engine over your own networking, and neither pulls in a package of anyone else's — the dependency graph below `Moonlight.Core.Http` is the nine and the framework.
+
+`moonlight-<version>-managed.zip` also carries `single/Moonlight.dll`: all nine layers in one assembly, to reference directly where a package feed is not wanted. **Do not mix the two.** One application gets the nine or gets the single assembly; the types are distinct even where the names match, and a `Scalar` from one is not a `Scalar` from the other.
+
+### With Nix
+
+```sh
+nix run github:daniilvaino/moonlight/v<version> -- version
+nix run github:daniilvaino/moonlight/v<version>#moonlight-tui
+```
+
 ## Build
 
 ```sh
