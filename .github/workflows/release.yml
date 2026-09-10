@@ -388,8 +388,8 @@ jobs:
             os="${target%%:*}"; rest="${target#*:}"; arch="${rest%%:*}"; rid="${rest#*:}"
             case "$os" in windows) suffix=.exe; lib=libmoonlight.dll ;; *) suffix=; lib=libmoonlight.so ;; esac
 
-            # Separate symbols are documented for Linux; what the Windows targets leave
-            # beside the binary is one of the things this run is here to find out.
+            # The flag is a Linux one. Windows gets a .pdb either way, which the first
+            # run of this workflow is what established.
             case "$os" in linux) symbols=--separate-symbols ;; *) symbols= ;; esac
 
             dir="dist/moonlight-$VERSION-$rid-bflat"
@@ -416,12 +416,20 @@ jobs:
             bash .github/licences.sh "$dir/licenses"
 
             # Symbols out of the payload archive and into their own, as NativeAOT's are.
-            if [ -n "$symbols" ]; then
-              sym="dist/moonlight-$VERSION-$rid-bflat-symbols"
-              mkdir -p "$sym"
-              mv "$dir"/*.dbg "$sym/" 2>/dev/null || true
-              rmdir "$sym" 2>/dev/null || true
-            fi
+            # bflat names them .dwo on Linux and .pdb on Windows, and they are most of
+            # what it writes: leaving them in means a wallet download that is two
+            # thirds debug information.
+            #
+            # Counted, not attempted. The first version of this moved *.dbg — a name
+            # bflat never writes — with the error silenced, so the symbols directory
+            # came out empty, was tidied away by rmdir, and everything shipped inside
+            # the payload. It looked exactly like success.
+            sym="dist/moonlight-$VERSION-$rid-bflat-symbols"
+            mkdir -p "$sym"
+            find "$dir" -maxdepth 1 \( -name '*.dwo' -o -name '*.pdb' \) -exec mv {} "$sym/" \;
+            moved=$(find "$sym" -type f | wc -l)
+            [ "$moved" -gt 0 ] || { echo "no symbols beside the $rid binaries"; exit 1; }
+            echo "$rid: $moved symbol files set aside"
           done
           find dist -maxdepth 2 | sort
 
@@ -501,6 +509,20 @@ jobs:
           ls -l "$name"
           echo "PAYLOAD=unpacked/$name" >> "$GITHUB_ENV"
 
+      - name: How this platform will launch it
+        if: startsWith(matrix.rid, 'win-')
+        run: |
+          set +e
+          echo "--- straight from bash"
+          "$PAYLOAD/moonlight.exe" version; echo "exit $?"
+          echo "--- through cmd"
+          cmd //c "$(cygpath -w "$PAYLOAD")\\moonlight.exe version"; echo "exit $?"
+          echo "--- through powershell"
+          powershell -NoProfile -Command "& '$(cygpath -w "$PAYLOAD")\\moonlight.exe' version"; echo "exit $?"
+          echo "--- what bash thinks the file is"
+          ls -l "$PAYLOAD/moonlight.exe"; file "$PAYLOAD/moonlight.exe" || true
+          true
+
       - name: Run it
         run: |
           case "$RID" in
@@ -536,8 +558,8 @@ jobs:
           git archive --format=tar.gz --prefix="moonlight-$VERSION/" \
             -o "dist/moonlight-$VERSION-src.tar.gz" "$GITHUB_REF_NAME"
 
-      # Every file the page carries, so a download can be checked. GitHub's own two
-      # source archives are left out: they are not promised to be stable byte for byte.
+      # Every file the page carries, so a download can be checked.
+      #
       # merge-multiple flattens every artifact into one directory, so the nine packages
       # arrive loose as well as inside the zip that carries them. The zip is what the
       # page offers; the loose copies would be eighteen more rows saying the same thing.
