@@ -1,0 +1,94 @@
+name: publish-nuget
+
+# The nine packages go to nuget.org, and they go there last.
+#
+# A version on nuget.org cannot be taken back. It can be unlisted, never deleted,
+# so of everything a release does this is the one step with no way back. It waits
+# for the steps that do have one: the draft Release is where a person looks at the
+# twenty-five files, publishing that draft is what says they looked, and only then
+# does this run — and it still stops at the nuget environment's reviewer.
+#
+# This is the publish job of the old nuget.yml, moved. That workflow sat on
+# push: tags, which armed a push to nuget.org on every tag, a trial one included;
+# its pack job had already been absorbed by release.yml's managed job, where the
+# packages are built once and checked against a clean consuming project.
+on:
+  release:
+    types: [published]
+
+env:
+  DOTNET_NOLOGO: true
+  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: true
+  CI: true
+
+jobs:
+  # Everything that can be known before anyone is asked to approve anything. The
+  # environment's gate sits on the job, not on the step, so a reviewer summoned by
+  # the job below would otherwise be approving a run that has checked nothing yet —
+  # and might then fail on a release that carries no packages at all.
+  check:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    env:
+      TAG: ${{ github.event.release.tag_name }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      # The bytes that were built from the tag and are hanging on the Release, not a
+      # fresh build of the same commit. Rebuilding here would publish something that
+      # nobody inspected, and inspecting the release page is the whole gate.
+      - name: The packages this release carries
+        run: |
+          gh release download "$TAG" -R "$GITHUB_REPOSITORY" -p '*-nuget.zip'
+          unzip -q ./*-nuget.zip -d out/nuget
+          ls out/nuget
+
+      # Nine of each, and every one of them at the tag's version. A release whose
+      # packages say a different number is a release where what was looked at and
+      # what would ship are two different things — and nuget.org keeps whatever it
+      # is handed.
+      - name: Nine packages, all at the tag's version
+        run: |
+          version="${TAG#v}"
+          [ "$(ls out/nuget/*.nupkg  | wc -l)" -eq 9 ] || { echo "expected 9 .nupkg";  exit 1; }
+          [ "$(ls out/nuget/*.snupkg | wc -l)" -eq 9 ] || { echo "expected 9 .snupkg"; exit 1; }
+          for f in out/nuget/*.nupkg out/nuget/*.snupkg; do
+            case "${f##*/}" in
+              *".$version."*) ;;
+              *) echo "${f##*/} is not version $version"; exit 1 ;;
+            esac
+          done
+          echo "nine packages at $version"
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: nuget
+          path: out/nuget/
+          if-no-files-found: error
+
+  publish:
+    needs: check
+    runs-on: ubuntu-latest
+    environment: nuget          # required reviewer: the approval gate
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 10.0.x
+
+      # v8 no longer unpacks what it downloads, hence v7.
+      - uses: actions/download-artifact@v7
+        with:
+          name: nuget
+          path: out/nuget
+
+      # The .snupkg beside each .nupkg is pushed along with it. --skip-duplicate is
+      # what makes a re-run after a partial failure safe: the versions already up
+      # are left alone rather than failing the job.
+      - name: Push to nuget.org
+        run: >
+          dotnet nuget push "out/nuget/*.nupkg"
+          --api-key "${{ secrets.NUGET_API_KEY }}"
+          --source https://api.nuget.org/v3/index.json
+          --skip-duplicate
