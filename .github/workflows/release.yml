@@ -217,13 +217,16 @@ jobs:
           mv "out/abi/Moonlight.Core.Abi.$ext" "out/abi/libmoonlight.$ext"
           [ -f out/abi/Moonlight.Core.Abi.lib ] && mv out/abi/Moonlight.Core.Abi.lib out/abi/libmoonlight.lib
           [ -f out/abi/Moonlight.Core.Abi.pdb ] && mv out/abi/Moonlight.Core.Abi.pdb out/abi/libmoonlight.pdb
+          [ -f "out/abi/Moonlight.Core.Abi.$ext.dbg" ] \
+            && mv "out/abi/Moonlight.Core.Abi.$ext.dbg" "out/abi/libmoonlight.$ext.dbg"
 
           # Publishing to -o names the bundle .dsym; the default output directory
           # names it .dSYM. Both spellings are looked for rather than guessed at,
           # since a case-insensitive filesystem would hide the wrong guess locally
-          # and a Linux runner would not.
+          # and a Linux runner would not. Whichever arrives leaves under one spelling,
+          # so the step that collects it has a single name to ask for.
           for bundle in "out/abi/Moonlight.Core.Abi.$ext.dsym" "out/abi/Moonlight.Core.Abi.$ext.dSYM"; do
-            [ -d "$bundle" ] && mv "$bundle" "out/abi/libmoonlight.$ext.${bundle##*.}"
+            [ -d "$bundle" ] && mv "$bundle" "out/abi/libmoonlight.$ext.dSYM"
           done
 
           # A dylib carries the name it was linked under, and the file moving does not
@@ -427,8 +430,11 @@ jobs:
           cd dist
           for d in */; do
             name="${d%/}"
+            # The directory goes in, not its contents: an archive that unpacks into
+            # whatever the reader was standing in is one that scatters a wallet across
+            # somebody's home directory. This is also the shape the smoke job unpacks.
             case "$name" in
-              *win-*) ( cd "$name" && zip -qr "../$name.zip" . ) ;;
+              *win-*) zip -qr "$name.zip" "$name" ;;
               *)      tar -czf "$name.tar.gz" "$name" ;;
             esac
             rm -rf "$name"
@@ -476,16 +482,24 @@ jobs:
           path: dist
 
       # Both archive forms hold one directory of the same name, so unpacking either
-      # leaves the payload in ./<name>/ and the step after this needs no branch.
+      # leaves the payload in unpacked/<name>/ and the step after this needs no branch.
+      #
+      # Into an empty directory, never the checkout. An archive built without its top
+      # directory spills over whatever shares a name — LICENSE, the notices — and the
+      # first sign of it is 7z stopping to ask about overwriting a file, which off a
+      # closed stdin reads as "Break signaled" and says nothing about the real fault.
+      # Here that archive simply has no directory to list, and the step says so.
       - name: Unpack this platform
         run: |
           name="moonlight-$VERSION-$RID-bflat"
+          mkdir unpacked
+          cd unpacked
           case "$RID" in
-            win-*) 7z x -bso0 "dist/$name.zip" ;;
-            *)     tar -xzf "dist/$name.tar.gz" ;;
+            win-*) 7z x -bso0 "../dist/$name.zip" ;;
+            *)     tar -xzf "../dist/$name.tar.gz" ;;
           esac
           ls -l "$name"
-          echo "PAYLOAD=$name" >> "$GITHUB_ENV"
+          echo "PAYLOAD=unpacked/$name" >> "$GITHUB_ENV"
 
       - name: Run it
         run: |
