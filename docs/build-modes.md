@@ -128,6 +128,25 @@ still in the archive and is what to install.
 
 `.github/workflows/bflat.yml` does both.
 
+### Which platforms it is shipped for
+
+A release carries bflat builds for linux-x64, linux-arm64 and win-x64. All three
+are cross-compiled from one Linux runner, and `release.yml` then runs each of them
+on a machine of that kind before the release job may start.
+
+win-arm64 is built by NativeAOT and not by bflat. bflat 8.0.2 produces a win-arm64
+binary that looks entirely correct — the PE machine type is ARM64, the imports are
+the same fourteen system libraries the x64 build resolves, the optional header is
+byte-identical in everything but architecture — and on a Windows 11 ARM64 machine
+it exits 127 having printed nothing. The command makes no difference, nor do no
+arguments at all; the CLI and the TUI behave the same; bash, `cmd` and PowerShell
+all report it the same way, and Windows logs nothing. The fault is below our code
+and was not worth chasing into a compiler pre-release for a third build mode of a
+platform NativeAOT already covers.
+
+This is why the smoke job exists. A cross-compiled binary that nobody has run is a
+binary that might not start, and this one does not.
+
 Measured on the crypto, serialization, RingCT and logging layers — 104 files, with
 nothing else rooted:
 

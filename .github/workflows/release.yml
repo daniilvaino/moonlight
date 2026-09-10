@@ -380,11 +380,19 @@ jobs:
       - name: The terminal interface's dependency
         run: dotnet build apps/Tui/Vendor/TerminalGui -c Release
 
-      - name: Build the four targets
+      # Three, not four. bflat 8.0.2 cross-compiles a win-arm64 binary that is a valid
+      # ARM64 image — right machine type, the same fourteen system imports the x64 one
+      # resolves — and it exits 127 without printing anything on a Windows 11 ARM64
+      # machine. Both binaries do, with no arguments, from bash, from cmd and from
+      # powershell alike, and Windows records nothing about it. Whatever the fault is,
+      # it is below our code, and a wallet nobody can start is not worth shipping.
+      # NativeAOT covers win-arm64 and its smoke test passes there, so the platform is
+      # not left out of the release, only out of this build mode.
+      - name: Build the three targets
         run: |
           flags="--stdlib DotNet --no-reflection --no-globalization --no-stacktrace-data"
 
-          for target in linux:x64:linux-x64 linux:arm64:linux-arm64 windows:x64:win-x64 windows:arm64:win-arm64; do
+          for target in linux:x64:linux-x64 linux:arm64:linux-arm64 windows:x64:win-x64; do
             os="${target%%:*}"; rest="${target#*:}"; arch="${rest%%:*}"; rid="${rest#*:}"
             case "$os" in windows) suffix=.exe; lib=libmoonlight.dll ;; *) suffix=; lib=libmoonlight.so ;; esac
 
@@ -468,8 +476,6 @@ jobs:
             rid: linux-arm64
           - os: windows-latest
             rid: win-x64
-          - os: windows-11-arm
-            rid: win-arm64
     runs-on: ${{ matrix.os }}
     env:
       VERSION: ${{ needs.verify.outputs.version }}
@@ -508,33 +514,6 @@ jobs:
           esac
           ls -l "$name"
           echo "PAYLOAD=unpacked/$name" >> "$GITHUB_ENV"
-
-      - name: How this platform will launch it
-        if: startsWith(matrix.rid, 'win-')
-        run: |
-          set +e
-          w=$(cygpath -w "$PAYLOAD")
-
-          # No arguments prints usage and returns 1. If that works the binary is fine
-          # and one command is not; if it is silent too, it dies before Main.
-          echo "--- no arguments"
-          "$PAYLOAD/moonlight.exe" 2>&1; echo "exit $?"
-          echo "--- version"
-          "$PAYLOAD/moonlight.exe" version 2>&1; echo "exit $?"
-          echo "--- version, through cmd, stderr kept"
-          cmd //c "$w\\moonlight.exe version 2>&1"; echo "exit $?"
-          echo "--- the tui, which is a different binary from the same compiler"
-          "$PAYLOAD/moonlight-tui.exe" --help 2>&1 | head -3; echo "exit $?"
-          echo "--- can the library be loaded at all"
-          powershell -NoProfile -Command \
-            "\$ErrorActionPreference='Continue'; \
-             try { \$h=[System.Runtime.InteropServices.NativeLibrary]::Load('$w\\libmoonlight.dll'); \
-                   Write-Output \"loaded \$h\" } catch { Write-Output \"load failed: \$_\" }"
-          echo "--- what Windows recorded about it"
-          powershell -NoProfile -Command \
-            "Get-WinEvent -FilterHashtable @{LogName='Application';StartTime=(Get-Date).AddMinutes(-10)} \
-             -ErrorAction SilentlyContinue | Select-Object -First 5 | Format-List TimeCreated,ProviderName,Message"
-          true
 
       - name: Run it
         run: |
