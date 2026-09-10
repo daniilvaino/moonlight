@@ -10,7 +10,7 @@ modes are one build per operating system and architecture.
 | NativeAOT | `dotnet publish -r <rid>` | the two applications, and `Core.Abi` as a shared library | yes |
 | bflat | `bflat build … --stdlib DotNet` | the same three, smaller | yes |
 
-`moonlight version` says which of the three it is — `moonlight 0.0.1 (nativeaot)`,
+`moonlight version` says which of the three it is — `moonlight <version> (nativeaot)`,
 `(bflat)` or `(managed)` — so an artifact can be identified once it is out of the
 archive it came in. bflat is told with `-d BFLAT` on its command line; the other two
 follow the `PublishAot` property, which the managed publish turns off.

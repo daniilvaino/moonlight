@@ -34,7 +34,7 @@
   <!-- Version: one number for the whole repository. The tag must match it, and so
        must apps/Cli/Program.cs and flake.nix — the nuget workflow checks all three. -->
   <PropertyGroup>
-    <Version>0.0.1</Version>
+    <Version>0.1.0-alpha.1</Version>
   </PropertyGroup>
 
   <!-- Packages: only the libraries under src/. Apps, tests, the native library and
