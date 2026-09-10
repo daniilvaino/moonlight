@@ -217,13 +217,16 @@ jobs:
           mv "out/abi/Moonlight.Core.Abi.$ext" "out/abi/libmoonlight.$ext"
           [ -f out/abi/Moonlight.Core.Abi.lib ] && mv out/abi/Moonlight.Core.Abi.lib out/abi/libmoonlight.lib
           [ -f out/abi/Moonlight.Core.Abi.pdb ] && mv out/abi/Moonlight.Core.Abi.pdb out/abi/libmoonlight.pdb
+          [ -f "out/abi/Moonlight.Core.Abi.$ext.dbg" ] \
+            && mv "out/abi/Moonlight.Core.Abi.$ext.dbg" "out/abi/libmoonlight.$ext.dbg"
 
           # Publishing to -o names the bundle .dsym; the default output directory
           # names it .dSYM. Both spellings are looked for rather than guessed at,
           # since a case-insensitive filesystem would hide the wrong guess locally
-          # and a Linux runner would not.
+          # and a Linux runner would not. Whichever arrives leaves under one spelling,
+          # so the step that collects it has a single name to ask for.
           for bundle in "out/abi/Moonlight.Core.Abi.$ext.dsym" "out/abi/Moonlight.Core.Abi.$ext.dSYM"; do
-            [ -d "$bundle" ] && mv "$bundle" "out/abi/libmoonlight.$ext.${bundle##*.}"
+            [ -d "$bundle" ] && mv "$bundle" "out/abi/libmoonlight.$ext.dSYM"
           done
 
           # A dylib carries the name it was linked under, and the file moving does not
@@ -377,16 +380,24 @@ jobs:
       - name: The terminal interface's dependency
         run: dotnet build apps/Tui/Vendor/TerminalGui -c Release
 
-      - name: Build the four targets
+      # Three, not four. bflat 8.0.2 cross-compiles a win-arm64 binary that is a valid
+      # ARM64 image — right machine type, the same fourteen system imports the x64 one
+      # resolves — and it exits 127 without printing anything on a Windows 11 ARM64
+      # machine. Both binaries do, with no arguments, from bash, from cmd and from
+      # powershell alike, and Windows records nothing about it. Whatever the fault is,
+      # it is below our code, and a wallet nobody can start is not worth shipping.
+      # NativeAOT covers win-arm64 and its smoke test passes there, so the platform is
+      # not left out of the release, only out of this build mode.
+      - name: Build the three targets
         run: |
           flags="--stdlib DotNet --no-reflection --no-globalization --no-stacktrace-data"
 
-          for target in linux:x64:linux-x64 linux:arm64:linux-arm64 windows:x64:win-x64 windows:arm64:win-arm64; do
+          for target in linux:x64:linux-x64 linux:arm64:linux-arm64 windows:x64:win-x64; do
             os="${target%%:*}"; rest="${target#*:}"; arch="${rest%%:*}"; rid="${rest#*:}"
             case "$os" in windows) suffix=.exe; lib=libmoonlight.dll ;; *) suffix=; lib=libmoonlight.so ;; esac
 
-            # Separate symbols are documented for Linux; what the Windows targets leave
-            # beside the binary is one of the things this run is here to find out.
+            # The flag is a Linux one. Windows gets a .pdb either way, which the first
+            # run of this workflow is what established.
             case "$os" in linux) symbols=--separate-symbols ;; *) symbols= ;; esac
 
             dir="dist/moonlight-$VERSION-$rid-bflat"
@@ -413,12 +424,20 @@ jobs:
             bash .github/licences.sh "$dir/licenses"
 
             # Symbols out of the payload archive and into their own, as NativeAOT's are.
-            if [ -n "$symbols" ]; then
-              sym="dist/moonlight-$VERSION-$rid-bflat-symbols"
-              mkdir -p "$sym"
-              mv "$dir"/*.dbg "$sym/" 2>/dev/null || true
-              rmdir "$sym" 2>/dev/null || true
-            fi
+            # bflat names them .dwo on Linux and .pdb on Windows, and they are most of
+            # what it writes: leaving them in means a wallet download that is two
+            # thirds debug information.
+            #
+            # Counted, not attempted. The first version of this moved *.dbg — a name
+            # bflat never writes — with the error silenced, so the symbols directory
+            # came out empty, was tidied away by rmdir, and everything shipped inside
+            # the payload. It looked exactly like success.
+            sym="dist/moonlight-$VERSION-$rid-bflat-symbols"
+            mkdir -p "$sym"
+            find "$dir" -maxdepth 1 \( -name '*.dwo' -o -name '*.pdb' \) -exec mv {} "$sym/" \;
+            moved=$(find "$sym" -type f | wc -l)
+            [ "$moved" -gt 0 ] || { echo "no symbols beside the $rid binaries"; exit 1; }
+            echo "$rid: $moved symbol files set aside"
           done
           find dist -maxdepth 2 | sort
 
@@ -427,8 +446,11 @@ jobs:
           cd dist
           for d in */; do
             name="${d%/}"
+            # The directory goes in, not its contents: an archive that unpacks into
+            # whatever the reader was standing in is one that scatters a wallet across
+            # somebody's home directory. This is also the shape the smoke job unpacks.
             case "$name" in
-              *win-*) ( cd "$name" && zip -qr "../$name.zip" . ) ;;
+              *win-*) zip -qr "$name.zip" "$name" ;;
               *)      tar -czf "$name.tar.gz" "$name" ;;
             esac
             rm -rf "$name"
@@ -454,8 +476,6 @@ jobs:
             rid: linux-arm64
           - os: windows-latest
             rid: win-x64
-          - os: windows-11-arm
-            rid: win-arm64
     runs-on: ${{ matrix.os }}
     env:
       VERSION: ${{ needs.verify.outputs.version }}
@@ -476,16 +496,24 @@ jobs:
           path: dist
 
       # Both archive forms hold one directory of the same name, so unpacking either
-      # leaves the payload in ./<name>/ and the step after this needs no branch.
+      # leaves the payload in unpacked/<name>/ and the step after this needs no branch.
+      #
+      # Into an empty directory, never the checkout. An archive built without its top
+      # directory spills over whatever shares a name — LICENSE, the notices — and the
+      # first sign of it is 7z stopping to ask about overwriting a file, which off a
+      # closed stdin reads as "Break signaled" and says nothing about the real fault.
+      # Here that archive simply has no directory to list, and the step says so.
       - name: Unpack this platform
         run: |
           name="moonlight-$VERSION-$RID-bflat"
+          mkdir unpacked
+          cd unpacked
           case "$RID" in
-            win-*) 7z x -bso0 "dist/$name.zip" ;;
-            *)     tar -xzf "dist/$name.tar.gz" ;;
+            win-*) 7z x -bso0 "../dist/$name.zip" ;;
+            *)     tar -xzf "../dist/$name.tar.gz" ;;
           esac
           ls -l "$name"
-          echo "PAYLOAD=$name" >> "$GITHUB_ENV"
+          echo "PAYLOAD=unpacked/$name" >> "$GITHUB_ENV"
 
       - name: Run it
         run: |
@@ -522,8 +550,8 @@ jobs:
           git archive --format=tar.gz --prefix="moonlight-$VERSION/" \
             -o "dist/moonlight-$VERSION-src.tar.gz" "$GITHUB_REF_NAME"
 
-      # Every file the page carries, so a download can be checked. GitHub's own two
-      # source archives are left out: they are not promised to be stable byte for byte.
+      # Every file the page carries, so a download can be checked.
+      #
       # merge-multiple flattens every artifact into one directory, so the nine packages
       # arrive loose as well as inside the zip that carries them. The zip is what the
       # page offers; the loose copies would be eighteen more rows saying the same thing.
