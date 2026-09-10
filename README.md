@@ -193,7 +193,7 @@ Steal what is stealable; port what is not. Every `Vendor/` tree carries a `VENDO
 
 ## Docs
 
-[architecture](docs/architecture.md) · [build modes](docs/build-modes.md) · [purity policy](docs/purity-policy.md) · [test corpus](docs/test-corpus.md) · [hard forks](docs/hardfork-policy.md) · [upstream bugs](docs/known-upstream-bugs.md) · [notices](THIRD-PARTY-NOTICES.md)
+[architecture](docs/architecture.md) · [build modes](docs/build-modes.md) · [purity policy](docs/purity-policy.md) · [test corpus](docs/test-corpus.md) · [hard forks](docs/hardfork-policy.md) · [upstream bugs](docs/known-upstream-bugs.md) · [security](SECURITY.md) · [notices](THIRD-PARTY-NOTICES.md)
 
 ## Roadmap
 
