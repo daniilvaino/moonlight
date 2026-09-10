@@ -513,14 +513,27 @@ jobs:
         if: startsWith(matrix.rid, 'win-')
         run: |
           set +e
-          echo "--- straight from bash"
-          "$PAYLOAD/moonlight.exe" version; echo "exit $?"
-          echo "--- through cmd"
-          cmd //c "$(cygpath -w "$PAYLOAD")\\moonlight.exe version"; echo "exit $?"
-          echo "--- through powershell"
-          powershell -NoProfile -Command "& '$(cygpath -w "$PAYLOAD")\\moonlight.exe' version"; echo "exit $?"
-          echo "--- what bash thinks the file is"
-          ls -l "$PAYLOAD/moonlight.exe"; file "$PAYLOAD/moonlight.exe" || true
+          w=$(cygpath -w "$PAYLOAD")
+
+          # No arguments prints usage and returns 1. If that works the binary is fine
+          # and one command is not; if it is silent too, it dies before Main.
+          echo "--- no arguments"
+          "$PAYLOAD/moonlight.exe" 2>&1; echo "exit $?"
+          echo "--- version"
+          "$PAYLOAD/moonlight.exe" version 2>&1; echo "exit $?"
+          echo "--- version, through cmd, stderr kept"
+          cmd //c "$w\\moonlight.exe version 2>&1"; echo "exit $?"
+          echo "--- the tui, which is a different binary from the same compiler"
+          "$PAYLOAD/moonlight-tui.exe" --help 2>&1 | head -3; echo "exit $?"
+          echo "--- can the library be loaded at all"
+          powershell -NoProfile -Command \
+            "\$ErrorActionPreference='Continue'; \
+             try { \$h=[System.Runtime.InteropServices.NativeLibrary]::Load('$w\\libmoonlight.dll'); \
+                   Write-Output \"loaded \$h\" } catch { Write-Output \"load failed: \$_\" }"
+          echo "--- what Windows recorded about it"
+          powershell -NoProfile -Command \
+            "Get-WinEvent -FilterHashtable @{LogName='Application';StartTime=(Get-Date).AddMinutes(-10)} \
+             -ErrorAction SilentlyContinue | Select-Object -First 5 | Format-List TimeCreated,ProviderName,Message"
           true
 
       - name: Run it
