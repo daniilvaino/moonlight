@@ -1,0 +1,547 @@
+name: release
+
+# Everything a release carries, built from one tag. A dispatch run builds the same
+# artifacts and creates no Release, which is how this is exercised without spending
+# a tag on it.
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: The version to build, without the leading v
+        required: true
+
+env:
+  DOTNET_NOLOGO: true
+  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: true
+  CI: true
+
+# Read everywhere; the one job that writes says so itself.
+permissions:
+  contents: read
+
+jobs:
+  # The version lives in Directory.Build.props, and the tag, Program.cs and flake.nix
+  # must agree with it. A mismatch is not a release, and finding that out after
+  # twenty minutes of building is worse than finding it out now.
+  verify:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Version
+        id: version
+        run: |
+          props=$(grep -oP '(?<=<Version>)[^<]+' Directory.Build.props)
+          if [ "${{ github.event_name }}" = push ]; then
+            asked="${GITHUB_REF_NAME#v}"
+          else
+            asked="${{ inputs.version }}"
+          fi
+          [ "$asked" = "$props" ] || { echo "asked for $asked, Directory.Build.props says $props"; exit 1; }
+          grep -qF "moonlight $props (" apps/Cli/Program.cs || { echo "Program.cs != $props"; exit 1; }
+          grep -qF "version = \"$props\"" flake.nix         || { echo "flake.nix != $props"; exit 1; }
+          echo "version=$props" >> "$GITHUB_OUTPUT"
+
+  # The nine packages, and the one archive that is the same on every platform.
+  managed:
+    needs: verify
+    runs-on: ubuntu-latest
+    env:
+      VERSION: ${{ needs.verify.outputs.version }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-dotnet@v5
+        with:
+          global-json-file: global.json
+
+      - name: Restore
+        run: dotnet restore Moonlight.slnx
+      - name: Build
+        run: dotnet build Moonlight.slnx -c Release --no-restore
+      - name: Test
+        run: dotnet test Moonlight.slnx -c Release --no-build
+      - name: Pack
+        run: dotnet pack Moonlight.slnx -c Release --no-build -o out/nuget
+
+      - name: Exactly nine packages
+        run: |
+          ls out/nuget
+          [ "$(ls out/nuget/*.nupkg  | wc -l)" -eq 9 ] || { echo "expected 9 .nupkg";  exit 1; }
+          [ "$(ls out/nuget/*.snupkg | wc -l)" -eq 9 ] || { echo "expected 9 .snupkg"; exit 1; }
+
+      # A clean project outside the repository installs Moonlight.Core.Http from the
+      # local feed: all nine must resolve, compile and load.
+      - name: Consumption test, nine packages
+        run: |
+          dir=$(mktemp -d)
+          cp -r out/nuget "$dir/feed"
+          cd "$dir"
+          dotnet new console -n Consume -o consume
+          cd consume
+          cat > nuget.config <<EOF
+          <configuration><packageSources><clear />
+            <add key="local" value="$dir/feed" />
+            <add key="nuget.org" value="https://api.nuget.org/v3/index.json" />
+          </packageSources></configuration>
+          EOF
+          dotnet add package Moonlight.Core.Http --version "$VERSION"
+          cat > Program.cs <<'EOF'
+          System.Console.WriteLine(typeof(Moonlight.Core.Http.HttpSync).Assembly.GetName().Version);
+          System.Console.WriteLine(typeof(Moonlight.Core.SyncEngine).Assembly.GetName().Version);
+          EOF
+          dotnet run
+
+      # No AOT and no apphost, so the archive is one build for every platform. It is
+      # run rather than only built: a managed archive nobody starts is a directory of
+      # files that happen to compile.
+      - name: The applications, managed
+        run: |
+          dotnet publish apps/Cli -c Release -p:PublishAot=false -p:UseAppHost=false -o out/managed/app
+          dotnet publish apps/Tui -c Release -p:PublishAot=false -p:UseAppHost=false -o out/managed/app
+          dotnet out/managed/app/moonlight.dll version
+          dotnet out/managed/app/moonlight.dll version | grep -qF '(managed)' \
+            || { echo "the managed build does not say so"; exit 1; }
+
+      # lib/ is the nine to reference; single/ is all nine layers in one assembly.
+      # They are not interchangeable in one application — the types differ — which is
+      # why the readme says to pick one.
+      - name: The libraries
+        run: |
+          mkdir -p out/managed/lib out/managed/single
+          cp src/Core.Http/bin/Release/net8.0/Moonlight.*.dll out/managed/lib/
+          cp src/Moonlight/bin/Release/net8.0/Moonlight.dll out/managed/single/
+          [ "$(ls out/managed/lib/*.dll | wc -l)" -eq 9 ] || { echo "expected 9 assemblies in lib/"; exit 1; }
+
+      - name: Consumption test, one assembly
+        run: |
+          dir=$(mktemp -d)
+          cp out/managed/single/Moonlight.dll "$dir/"
+          cd "$dir"
+          dotnet new console -n Consume -o consume
+          cd consume
+          python3 - <<'EOF'
+          import re
+          p = 'Consume.csproj'
+          s = open(p).read().replace('</Project>',
+              '  <ItemGroup>\n    <Reference Include="Moonlight">\n'
+              '      <HintPath>../Moonlight.dll</HintPath>\n'
+              '    </Reference>\n  </ItemGroup>\n\n</Project>')
+          open(p, 'w').write(s)
+          EOF
+          cat > Program.cs <<'EOF'
+          System.Console.WriteLine(typeof(Moonlight.Core.Http.HttpSync).Assembly.GetName().Name);
+          System.Console.WriteLine(typeof(Moonlight.Core.SyncEngine).Assembly.GetName().Name);
+          EOF
+          dotnet run | tee /tmp/single.txt
+          [ "$(sort -u /tmp/single.txt)" = "Moonlight" ] || { echo "the single assembly is not one assembly"; exit 1; }
+
+      - name: Stage and archive
+        run: |
+          cp LICENSE THIRD-PARTY-NOTICES.md out/managed/
+          .github/licences.sh out/managed/licenses
+          ( cd out/managed && zip -qr "../moonlight-$VERSION-managed.zip" . )
+          ( cd out && zip -qrj "moonlight-$VERSION-nuget.zip" nuget )
+          ls -l out/*.zip
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: managed
+          path: |
+            out/moonlight-${{ env.VERSION }}-managed.zip
+            out/moonlight-${{ env.VERSION }}-nuget.zip
+          if-no-files-found: error
+
+      # The same bytes go to nuget.org, so they travel separately as well.
+      - uses: actions/upload-artifact@v7
+        with:
+          name: nuget
+          path: out/nuget/
+          if-no-files-found: error
+
+  # One runner per platform a release carries. The applications, the library under
+  # the name it ships as, the demo, and the symbols for all of them.
+  nativeaot:
+    needs: verify
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            rid: linux-x64
+          - os: ubuntu-24.04-arm
+            rid: linux-arm64
+          - os: windows-latest
+            rid: win-x64
+          - os: windows-11-arm
+            rid: win-arm64
+          - os: macos-latest
+            rid: osx-arm64
+    runs-on: ${{ matrix.os }}
+    env:
+      VERSION: ${{ needs.verify.outputs.version }}
+      RID: ${{ matrix.rid }}
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-dotnet@v5
+        with:
+          global-json-file: global.json
+
+      - name: Publish
+        run: |
+          dotnet publish apps/Cli -c Release -r "$RID" -p:Version="$VERSION" -o out/cli
+          dotnet publish apps/Tui -c Release -r "$RID" -p:Version="$VERSION" -o out/tui
+          dotnet publish src/Core.Abi -c Release -r "$RID" -p:Version="$VERSION" -o out/abi
+
+      # What ships is libmoonlight.*, one name in both build modes and on every
+      # platform. The symbol bundle is named after the library, so it is renamed with
+      # it — otherwise a macOS archive carries symbols pointing at a file that is not
+      # in it.
+      - name: Name the library as it ships
+        run: |
+          case "$RID" in
+            win-*)   ext=dll ;;
+            osx-*)   ext=dylib ;;
+            *)       ext=so ;;
+          esac
+          echo "LIB_EXT=$ext" >> "$GITHUB_ENV"
+
+          mv "out/abi/Moonlight.Core.Abi.$ext" "out/abi/libmoonlight.$ext"
+          [ -f out/abi/Moonlight.Core.Abi.lib ] && mv out/abi/Moonlight.Core.Abi.lib out/abi/libmoonlight.lib
+          [ -f out/abi/Moonlight.Core.Abi.pdb ] && mv out/abi/Moonlight.Core.Abi.pdb out/abi/libmoonlight.pdb
+
+          # Publishing to -o names the bundle .dsym; the default output directory
+          # names it .dSYM. Both spellings are looked for rather than guessed at,
+          # since a case-insensitive filesystem would hide the wrong guess locally
+          # and a Linux runner would not.
+          for bundle in "out/abi/Moonlight.Core.Abi.$ext.dsym" "out/abi/Moonlight.Core.Abi.$ext.dSYM"; do
+            [ -d "$bundle" ] && mv "$bundle" "out/abi/libmoonlight.$ext.${bundle##*.}"
+          done
+
+          # A dylib carries the name it was linked under, and the file moving does not
+          # change it: a consumer would be sent after a library that is no longer there.
+          if [ "$ext" = dylib ]; then
+            install_name_tool -id @rpath/libmoonlight.dylib out/abi/libmoonlight.dylib
+            otool -L out/abi/libmoonlight.dylib | head -2
+          fi
+          true
+
+      - name: Check the C interface
+        run: dotnet run --project tests/Abi.Native -c Release -- "out/abi/libmoonlight.$LIB_EXT" src/Core.Abi/moonlight.h
+
+      - name: Run what was built
+        run: |
+          case "$RID" in
+            win-*) suffix=.exe ;;
+            *)     suffix= ;;
+          esac
+          "out/cli/moonlight$suffix" version
+          "out/cli/moonlight$suffix" version | grep -qF '(nativeaot)' \
+            || { echo "the NativeAOT build does not say so"; exit 1; }
+
+      - name: The demo
+        run: dotnet publish apps/Gui.Demo -c Release -r "$RID" --self-contained -p:Version="$VERSION" -o out/gui
+
+      # Three archives per platform: the applications with the library, the demo, and
+      # the symbols. Symbols travel apart because most people downloading a wallet do
+      # not want a debug build's worth of bytes.
+      - name: Stage
+        run: |
+          case "$RID" in
+            win-*) suffix=.exe ;;
+            *)     suffix= ;;
+          esac
+
+          app="dist/moonlight-$VERSION-$RID"
+          mkdir -p "$app"
+          cp "out/cli/moonlight$suffix" "out/tui/moonlight-tui$suffix" "$app/"
+          cp "out/abi/libmoonlight.$LIB_EXT" "$app/"
+          [ -f out/abi/libmoonlight.lib ] && cp out/abi/libmoonlight.lib "$app/"
+          cp src/Core.Abi/moonlight.h LICENSE THIRD-PARTY-NOTICES.md "$app/"
+          bash .github/licences.sh "$app/licenses"
+
+          # The demo is the one application shipping other people's binaries, so its
+          # notices come from the packages that were restored rather than from the
+          # root file, which is about vendored source.
+          gui="dist/moonlight-gui-demo-$VERSION-$RID"
+          mkdir -p "$gui"
+          cp -r out/gui/. "$gui/"
+          cp LICENSE apps/Gui.Demo/THIRD-PARTY-NOTICES.md "$gui/"
+          bash .github/demo-licences.sh "$gui/licenses"
+
+          sym="dist/moonlight-$VERSION-$RID-symbols"
+          mkdir -p "$sym"
+          case "$RID" in
+            win-*) cp out/cli/moonlight.pdb out/tui/moonlight-tui.pdb out/abi/libmoonlight.pdb "$sym/" ;;
+            osx-*) cp -r out/cli/moonlight.dsym out/tui/moonlight-tui.dsym "out/abi/libmoonlight.$LIB_EXT.dSYM" "$sym/" ;;
+            *)     cp out/cli/moonlight.dbg out/tui/moonlight-tui.dbg "out/abi/libmoonlight.$LIB_EXT.dbg" "$sym/" ;;
+          esac
+          true
+
+      # Both forms hold one directory, so unpacking never spills files into whatever
+      # the reader happened to be standing in. zip is not on a Windows runner's bash;
+      # 7z is, and it is what the image ships for this.
+      - name: Archive
+        run: |
+          cd dist
+          for d in */; do
+            name="${d%/}"
+            case "$RID" in
+              win-*) 7z a -tzip -bso0 "$name.zip" "$name" ;;
+              *)     tar -czf "$name.tar.gz" "$name" ;;
+            esac
+            rm -rf "$name"
+          done
+          ls -l
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: native-${{ matrix.rid }}
+          path: dist/*
+          if-no-files-found: error
+
+  # One Linux runner cross-compiles all four bflat targets. The compiler is the same
+  # binary for every target; only --os and --arch change.
+  bflat:
+    needs: verify
+    runs-on: ubuntu-latest
+    env:
+      VERSION: ${{ needs.verify.outputs.version }}
+      BFLAT_VERSION: 8.0.2
+      LD_LIBRARY_PATH: ${{ github.workspace }}/bflat
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-dotnet@v5
+        with:
+          global-json-file: global.json
+
+      # Its object writer links against libc++ and the release does not carry a
+      # complete one; a missing dependency of the object writer is reported as the
+      # object writer itself being missing.
+      - name: The C++ runtime bflat links against
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends libc++1 libc++abi1 \
+            || sudo apt-get install -y --no-install-recommends libc++1-18 libc++abi1-18
+
+      - name: Cache bflat
+        id: cache
+        uses: actions/cache@v4
+        with:
+          path: bflat
+          key: bflat-${{ env.BFLAT_VERSION }}-linux-x64
+
+      - name: Fetch bflat
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p bflat
+          curl -sSL -o bflat.tar.gz \
+            "https://github.com/bflattened/bflat/releases/download/v${BFLAT_VERSION}/bflat-${BFLAT_VERSION}-linux-glibc-x64.tar.gz"
+          tar -xzf bflat.tar.gz -C bflat
+
+      - name: Check bflat is there
+        run: |
+          chmod +x bflat/bflat
+          ./bflat/bflat --info | head -3
+
+      # bflat runs no MSBuild, so nothing generates the implicit usings or the aliases
+      # TerminalGui.props declares.
+      - name: Global usings
+        run: |
+          cat > GlobalUsings.cs <<'EOF'
+          global using System;
+          global using System.Collections.Generic;
+          global using System.IO;
+          global using System.Linq;
+          global using System.Net.Http;
+          global using System.Threading;
+          global using System.Threading.Tasks;
+          global using BitArray = System.Collections.BitArray;
+          global using System.Globalization;
+          global using System.Text;
+          global using System.Text.RegularExpressions;
+          EOF
+
+      # Terminal.Gui uses C# 14 extension members, which bflat's own compiler is too
+      # old to parse. The language moved and the IL did not, so it is built with the
+      # SDK and handed over as an assembly.
+      - name: The terminal interface's dependency
+        run: dotnet build apps/Tui/Vendor/TerminalGui -c Release
+
+      - name: Build the four targets
+        run: |
+          flags="--stdlib DotNet --no-reflection --no-globalization --no-stacktrace-data"
+
+          for target in linux:x64:linux-x64 linux:arm64:linux-arm64 windows:x64:win-x64 windows:arm64:win-arm64; do
+            os="${target%%:*}"; rest="${target#*:}"; arch="${rest%%:*}"; rid="${rest#*:}"
+            case "$os" in windows) suffix=.exe; lib=libmoonlight.dll ;; *) suffix=; lib=libmoonlight.so ;; esac
+
+            # Separate symbols are documented for Linux; what the Windows targets leave
+            # beside the binary is one of the things this run is here to find out.
+            case "$os" in linux) symbols=--separate-symbols ;; *) symbols= ;; esac
+
+            dir="dist/moonlight-$VERSION-$rid-bflat"
+            mkdir -p "$dir"
+
+            ./bflat/bflat build \
+              $(find src -name '*.cs' -not -path '*/obj/*' -not -path '*/bin/*' -not -path '*/Core.Http/*') \
+              GlobalUsings.cs --os "$os" --arch "$arch" $symbols \
+              --target Shared -o "$dir/$lib" $flags
+
+            ./bflat/bflat build \
+              $(find src apps/Cli -name '*.cs' -not -path '*/obj/*' -not -path '*/bin/*' -not -path '*/Core.Abi/*') \
+              GlobalUsings.cs --os "$os" --arch "$arch" $symbols -d BFLAT \
+              -o "$dir/moonlight$suffix" $flags
+
+            ./bflat/bflat build \
+              $(find src apps/Tui -name '*.cs' -not -path '*/obj/*' -not -path '*/bin/*' \
+                     -not -path '*/Core.Abi/*' -not -path 'apps/Tui/Vendor/*') \
+              GlobalUsings.cs --os "$os" --arch "$arch" $symbols -d BFLAT \
+              -r apps/Tui/Vendor/TerminalGui/bin/Release/net8.0/Moonlight.Vendor.TerminalGui.dll \
+              -o "$dir/moonlight-tui$suffix" $flags
+
+            cp src/Core.Abi/moonlight.h LICENSE THIRD-PARTY-NOTICES.md "$dir/"
+            bash .github/licences.sh "$dir/licenses"
+
+            # Symbols out of the payload archive and into their own, as NativeAOT's are.
+            if [ -n "$symbols" ]; then
+              sym="dist/moonlight-$VERSION-$rid-bflat-symbols"
+              mkdir -p "$sym"
+              mv "$dir"/*.dbg "$sym/" 2>/dev/null || true
+              rmdir "$sym" 2>/dev/null || true
+            fi
+          done
+          find dist -maxdepth 2 | sort
+
+      - name: Archive
+        run: |
+          cd dist
+          for d in */; do
+            name="${d%/}"
+            case "$name" in
+              *win-*) ( cd "$name" && zip -qr "../$name.zip" . ) ;;
+              *)      tar -czf "$name.tar.gz" "$name" ;;
+            esac
+            rm -rf "$name"
+          done
+          ls -l
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: bflat
+          path: dist/*
+          if-no-files-found: error
+
+  # Cross-compiled binaries that nobody has run are binaries that might not start.
+  bflat-smoke:
+    needs: [verify, bflat]
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            rid: linux-x64
+          - os: ubuntu-24.04-arm
+            rid: linux-arm64
+          - os: windows-latest
+            rid: win-x64
+          - os: windows-11-arm
+            rid: win-arm64
+    runs-on: ${{ matrix.os }}
+    env:
+      VERSION: ${{ needs.verify.outputs.version }}
+      RID: ${{ matrix.rid }}
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-dotnet@v5
+        with:
+          global-json-file: global.json
+
+      - uses: actions/download-artifact@v7
+        with:
+          name: bflat
+          path: dist
+
+      # Both archive forms hold one directory of the same name, so unpacking either
+      # leaves the payload in ./<name>/ and the step after this needs no branch.
+      - name: Unpack this platform
+        run: |
+          name="moonlight-$VERSION-$RID-bflat"
+          case "$RID" in
+            win-*) 7z x -bso0 "dist/$name.zip" ;;
+            *)     tar -xzf "dist/$name.tar.gz" ;;
+          esac
+          ls -l "$name"
+          echo "PAYLOAD=$name" >> "$GITHUB_ENV"
+
+      - name: Run it
+        run: |
+          case "$RID" in
+            win-*) suffix=.exe; lib=libmoonlight.dll ;;
+            *)     suffix=;     lib=libmoonlight.so ;;
+          esac
+          chmod +x "$PAYLOAD/moonlight$suffix" || true
+          "$PAYLOAD/moonlight$suffix" version
+          "$PAYLOAD/moonlight$suffix" version | grep -qF '(bflat)' \
+            || { echo "the bflat build does not say so"; exit 1; }
+          dotnet run --project tests/Abi.Native -c Release -- "$PAYLOAD/$lib" src/Core.Abi/moonlight.h
+
+  # Only a tag makes a Release, and only this job may write one.
+  release:
+    needs: [verify, managed, nativeaot, bflat, bflat-smoke]
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      VERSION: ${{ needs.verify.outputs.version }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/download-artifact@v7
+        with:
+          path: dist
+          merge-multiple: true
+
+      # The tag's tree, without .git and without the donor clones under work/.
+      - name: The sources
+        run: |
+          git archive --format=tar.gz --prefix="moonlight-$VERSION/" \
+            -o "dist/moonlight-$VERSION-src.tar.gz" "$GITHUB_REF_NAME"
+
+      # Every file the page carries, so a download can be checked. GitHub's own two
+      # source archives are left out: they are not promised to be stable byte for byte.
+      # merge-multiple flattens every artifact into one directory, so the nine packages
+      # arrive loose as well as inside the zip that carries them. The zip is what the
+      # page offers; the loose copies would be eighteen more rows saying the same thing.
+      #
+      # GitHub's own two source archives are not summed: they are not promised to be
+      # stable byte for byte, so a sum of them would be a promise this cannot keep.
+      - name: Sums
+        run: |
+          cd dist
+          rm -f ./*.nupkg ./*.snupkg
+          sha256sum ./* > SHA256SUMS
+          sed -i 's|\./||' SHA256SUMS
+          cat SHA256SUMS
+          echo "files: $(ls | wc -l)"
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          draft: true
+          prerelease: ${{ contains(github.ref_name, '-') }}
+          generate_release_notes: true
+          files: dist/*
