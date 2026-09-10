@@ -12,9 +12,20 @@ name: publish-nuget
 # push: tags, which armed a push to nuget.org on every tag, a trial one included;
 # its pack job had already been absorbed by release.yml's managed job, where the
 # packages are built once and checked against a clean consuming project.
+#
+# It can also be started by hand against a tag. release.yml could be rehearsed
+# before it was ever needed, because it had that trigger; this one could not, and
+# broke the first time it ran for real. A dispatch run is not a way around the
+# gate — it stops at the same reviewer — it is a way to find out that everything
+# before the gate works while nothing is at stake.
 on:
   release:
     types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: The release tag to publish the packages of
+        required: true
 
 env:
   DOTNET_NOLOGO: true
@@ -31,7 +42,7 @@ jobs:
     permissions:
       contents: read
     env:
-      TAG: ${{ github.event.release.tag_name }}
+      TAG: ${{ github.event.release.tag_name || inputs.tag }}
       GH_TOKEN: ${{ github.token }}
     steps:
       # The bytes that were built from the tag and are hanging on the Release, not a
@@ -40,6 +51,9 @@ jobs:
       - name: The packages this release carries
         run: |
           gh release download "$TAG" -R "$GITHUB_REPOSITORY" -p '*-nuget.zip'
+          # unzip -d creates the last directory of the path and not the ones above
+          # it, so out/ has to exist first.
+          mkdir -p out/nuget
           unzip -q ./*-nuget.zip -d out/nuget
           ls out/nuget
 
