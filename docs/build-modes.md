@@ -10,7 +10,7 @@ modes are one build per operating system and architecture.
 | NativeAOT | `dotnet publish -r <rid>` | the two applications, and `Core.Abi` as a shared library | yes |
 | bflat | `bflat build … --stdlib DotNet` | the same three, smaller | yes |
 
-`moonlight version` says which of the three it is — `moonlight 0.0.1 (nativeaot)`,
+`moonlight version` says which of the three it is — `moonlight <version> (nativeaot)`,
 `(bflat)` or `(managed)` — so an artifact can be identified once it is out of the
 archive it came in. bflat is told with `-d BFLAT` on its command line; the other two
 follow the `PublishAot` property, which the managed publish turns off.
@@ -35,6 +35,7 @@ purity gate on purpose.
 | the same, plus all three bflat artifacts | `bflat` — linux x64 and arm64 |
 | a hermetic build of the applications, the suite, the gate | `nix` — one runner per system the flake claims |
 | the purity gate, and that a sterile restore works with no network | `purity-gate` |
+| every artifact a release carries, each one run on a machine of its own kind | `release` — on a tag, and on demand |
 
 `tests/Abi.Native` is the one thing that opens the door rather than testing the
 room behind it. It loads the shared library that was just built, looks up every
