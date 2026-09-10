@@ -35,7 +35,7 @@
        must apps/Cli/Program.cs and flake.nix — release.yml's verify job compares all
        three before anything is built, and a disagreement is not a release. -->
   <PropertyGroup>
-    <Version>0.1.0-alpha.1</Version>
+    <Version>0.1.0-alpha.2</Version>
   </PropertyGroup>
 
   <!-- Packages: only the libraries under src/. Apps, tests, the native library and
