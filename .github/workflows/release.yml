@@ -3,9 +3,15 @@ name: release
 # Everything a release carries, built from one tag. A dispatch run builds the same
 # artifacts and creates no Release, which is how this is exercised without spending
 # a tag on it.
+#
+# Every tag, not only the ones shaped like a release. A tag filter of v* is silent
+# about a tag that misses it: nothing builds, and the mistake surfaces later as a
+# Release page with no files on it. verify rejects a tag that is not this version
+# instead, which is a red run within a minute of the push. Tags with a slash in
+# them are not matched, so a scrapped/... tag stays what it is.
 on:
   push:
-    tags: ["v*"]
+    tags: ["*"]
   workflow_dispatch:
     inputs:
       version:
@@ -36,12 +42,18 @@ jobs:
         id: version
         run: |
           props=$(grep -oP '(?<=<Version>)[^<]+' Directory.Build.props)
+
+          # The whole tag, compared to the whole name a release tag has. Stripping a
+          # leading v and comparing what is left would accept 0.1.0-alpha.2 as readily
+          # as v0.1.0-alpha.2 — the v would be optional in practice, and a release
+          # would exist under two spellings depending on who typed it.
           if [ "${{ github.event_name }}" = push ]; then
-            asked="${GITHUB_REF_NAME#v}"
+            [ "$GITHUB_REF_NAME" = "v$props" ] \
+              || { echo "tag $GITHUB_REF_NAME is not v$props, which is what Directory.Build.props says"; exit 1; }
           else
-            asked="${{ inputs.version }}"
+            [ "${{ inputs.version }}" = "$props" ] \
+              || { echo "asked for ${{ inputs.version }}, Directory.Build.props says $props"; exit 1; }
           fi
-          [ "$asked" = "$props" ] || { echo "asked for $asked, Directory.Build.props says $props"; exit 1; }
           grep -qF "moonlight $props (" apps/Cli/Program.cs || { echo "Program.cs != $props"; exit 1; }
           grep -qF "version = \"$props\"" flake.nix         || { echo "flake.nix != $props"; exit 1; }
           echo "version=$props" >> "$GITHUB_OUTPUT"
