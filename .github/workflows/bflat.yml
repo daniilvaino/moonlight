@@ -120,16 +120,22 @@ jobs:
       # -d BFLAT is what makes `version` say which build it is. Without it the binary
       # would answer "nativeaot" — a wrong answer rather than a missing one, and one
       # nothing would have caught, which is why the output is asserted and not printed.
+      #
+      # The version itself comes from VERSION through a constant that apps/Cli's own
+      # target writes. bflat runs no MSBuild, so the target is run for it, and the file
+      # handed over with the sources — the same file every other build compiles.
       - name: The command line
         run: |
+          dotnet msbuild apps/Cli/Cli.csproj -t:WriteBuildVersion -p:BuildVersionFile="$PWD/BuildVersion.g.cs" -nologo -v:q
           ./bflat/bflat build \
             $(find src apps/Cli -name '*.cs' -not -path '*/obj/*' -not -path '*/bin/*' -not -path '*/Core.Abi/*') \
-            GlobalUsings.cs \
+            GlobalUsings.cs BuildVersion.g.cs \
             -d BFLAT \
             -o moonlight \
             --stdlib DotNet --no-reflection --no-globalization --no-stacktrace-data
           ./moonlight version
-          ./moonlight version | grep -qF '(bflat)' || { echo "the bflat build does not say so"; exit 1; }
+          expected="moonlight $(cat VERSION) (bflat)"
+          [ "$(./moonlight version)" = "$expected" ] || { echo "expected: $expected"; exit 1; }
 
       # Terminal.Gui uses C# 14 extension members, which bflat's own compiler is too
       # old to parse. The language moved and the IL did not, so it is built with our

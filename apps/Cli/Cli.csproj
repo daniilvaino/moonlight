@@ -20,4 +20,26 @@
     <ProjectReference Include="..\..\src\Core.Http\Core.Http.csproj" />
   </ItemGroup>
 
+  <!-- The version `moonlight version` prints, written as a constant. It has to be
+       right in all three build modes, and bflat runs no MSBuild, so it never sees
+       $(Version) at all. The bflat builds run this same target to get the file —
+       `dotnet msbuild apps/Cli -t:WriteBuildVersion -p:BuildVersionFile=...` — rather
+       than carrying a copy of what it writes, so there is one shape for the class and
+       not two to drift apart. -->
+  <Target Name="WriteBuildVersion" BeforeTargets="CoreCompile">
+    <PropertyGroup>
+      <BuildVersionFile Condition="'$(BuildVersionFile)' == ''">$(IntermediateOutputPath)BuildVersion.g.cs</BuildVersionFile>
+    </PropertyGroup>
+
+    <WriteLinesToFile
+      File="$(BuildVersionFile)"
+      Overwrite="true"
+      WriteOnlyWhenDifferent="true"
+      Lines="// Generated from VERSION by apps/Cli/Cli.csproj. Not checked in.;namespace Moonlight.Cli%3B;internal static class BuildVersion { public const string Value = &quot;$(Version)&quot;%3B }" />
+
+    <ItemGroup>
+      <Compile Include="$(BuildVersionFile)" />
+    </ItemGroup>
+  </Target>
+
 </Project>

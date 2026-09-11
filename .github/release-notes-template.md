@@ -1,14 +1,7 @@
 <!--
-A template, not a document that ships.
-
-release.yml creates the Release as a draft with generated commit notes in the body.
-Copy everything below the rule into that body above the generated list, replace
-<version> throughout, and check the file table against what the page actually
-carries before pressing Publish.
-
-Publishing is not the last reversible step by accident: it is what starts
-publish-nuget.yml, and a version on nuget.org can be unlisted but never deleted.
-Look at the twenty-five files first.
+The body of every Release. release.yml takes everything below the rule, fills in
+<version>, and puts it above the generated commit list — nobody edits the page by
+hand, so the file table has to stay true of what release.yml builds.
 
 The warning block stays first and stays as blunt as it is. Somebody is about to
 point a wallet at their money on the strength of this page.

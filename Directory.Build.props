@@ -31,11 +31,11 @@
     <IsSterile Condition="$([System.String]::Copy('$(MSBuildProjectDirectory)').Replace('\','/').Contains('/apps/Tui'))">true</IsSterile>
   </PropertyGroup>
 
-  <!-- Version: one number for the whole repository. The tag must match it, and so
-       must apps/Cli/Program.cs and flake.nix — release.yml's verify job compares all
-       three before anything is built, and a disagreement is not a release. -->
+  <!-- Version: one number for the whole repository, and it lives in VERSION. This
+       reads it, flake.nix reads it, and apps/Cli generates the constant `moonlight
+       version` prints from it — so there is nothing left to keep in step by hand. -->
   <PropertyGroup>
-    <Version>0.1.0-alpha.2</Version>
+    <Version>$([System.IO.File]::ReadAllText('$(MSBuildThisFileDirectory)VERSION').Trim())</Version>
   </PropertyGroup>
 
   <!-- Packages: only the libraries under src/. Apps, tests, the native library and

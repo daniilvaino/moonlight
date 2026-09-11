@@ -12,6 +12,10 @@ lib.fileset.toSource {
     (src + "/Directory.Build.targets")
     (src + "/Directory.Packages.props")
     (src + "/Moonlight.slnx")
+    # Directory.Build.props reads the version from it, and fails to evaluate if the
+    # file is not there — even though the Nix build also passes the same number as
+    # -p:Version.
+    (src + "/VERSION")
     (src + "/global.json")
     (src + "/nuget.config")
     (src + "/media/favicon.ico")

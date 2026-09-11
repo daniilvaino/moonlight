@@ -20,7 +20,7 @@
 
       forAllSystems = f: lib.genAttrs systems (system: f nixpkgs.legacyPackages.${system});
 
-      version = "0.1.0-alpha.2";
+      version = lib.fileContents ./VERSION;
     in
     {
       overlays.default = final: prev: {

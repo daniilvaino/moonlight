@@ -1,62 +1,75 @@
 name: release
 
-# Everything a release carries, built from one tag. A dispatch run builds the same
-# artifacts and creates no Release, which is how this is exercised without spending
-# a tag on it.
+# One button. The version is whatever VERSION says.
 #
-# Every tag, not only the ones shaped like a release. A tag filter of v* is silent
-# about a tag that misses it: nothing builds, and the mistake surfaces later as a
-# Release page with no files on it. verify rejects a tag that is not this version
-# instead, which is a red run within a minute of the push. Tags with a slash in
-# them are not matched, so a scrapped/... tag stays what it is.
+#   publish off   build and check everything a release carries, then stop.
+#   publish on    the same, then a draft Release, the nine packages to nuget.org,
+#                 and the Release published — which is when its tag appears, at the
+#                 commit that was built. Nobody types a tag.
+#
+# Packages before the Release, because nuget.org cannot take a version back: if the
+# push fails, the Release is still a draft, and running again picks up from there.
 on:
-  push:
-    tags: ["*"]
   workflow_dispatch:
     inputs:
-      version:
-        description: The version to build, without the leading v
-        required: true
+      publish:
+        description: Release it — create the Release, push to nuget.org, publish
+        type: boolean
+        default: false
 
 env:
   DOTNET_NOLOGO: true
   DOTNET_SKIP_FIRST_TIME_EXPERIENCE: true
   CI: true
 
-# Read everywhere; the one job that writes says so itself.
+# Read everywhere; the jobs that write say so themselves.
 permissions:
   contents: read
 
+# One run at a time, so two presses cannot race for the same draft.
+concurrency:
+  group: release
+  cancel-in-progress: false
+
 jobs:
-  # The version lives in Directory.Build.props, and the tag, Program.cs and flake.nix
-  # must agree with it. A mismatch is not a release, and finding that out after
-  # twenty minutes of building is worse than finding it out now.
+  # Everything that can be known in a minute, before twenty minutes of building.
   verify:
     runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.version.outputs.version }}
+      prerelease: ${{ steps.version.outputs.prerelease }}
+    env:
+      ACTOR: ${{ github.triggering_actor }}
     steps:
       - uses: actions/checkout@v5
+
+      # A courtesy, not the lock: a dispatch runs this file from whichever branch was
+      # chosen, and a branch can drop this line. The lock is the nuget environment —
+      # main only, and the one secret that publishes lives there.
+      - name: Whose button
+        run: '[ "$ACTOR" = daniilvaino ] || { echo "$ACTOR started this; only daniilvaino releases"; exit 1; }'
 
       - name: Version
         id: version
         run: |
-          props=$(grep -oP '(?<=<Version>)[^<]+' Directory.Build.props)
+          version=$(tr -d '[:space:]' < VERSION)
+          echo "$version" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.]+)?$' \
+            || { echo "VERSION says '$version', which is not a version"; exit 1; }
+          case "$version" in *-*) prerelease=true ;; *) prerelease=false ;; esac
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "prerelease=$prerelease" >> "$GITHUB_OUTPUT"
+          echo "v$version, prerelease: $prerelease"
 
-          # The whole tag, compared to the whole name a release tag has. Stripping a
-          # leading v and comparing what is left would accept 0.1.0-alpha.2 as readily
-          # as v0.1.0-alpha.2 — the v would be optional in practice, and a release
-          # would exist under two spellings depending on who typed it.
-          if [ "${{ github.event_name }}" = push ]; then
-            [ "$GITHUB_REF_NAME" = "v$props" ] \
-              || { echo "tag $GITHUB_REF_NAME is not v$props, which is what Directory.Build.props says"; exit 1; }
-          else
-            [ "${{ inputs.version }}" = "$props" ] \
-              || { echo "asked for ${{ inputs.version }}, Directory.Build.props says $props"; exit 1; }
+      # A published Release has its tag; a draft has none yet. So a tag means the
+      # version is out — or was tagged by hand — and either way this is not a release.
+      - name: From main, and not released yet
+        if: inputs.publish
+        run: |
+          version="${{ steps.version.outputs.version }}"
+          [ "$GITHUB_REF" = refs/heads/main ] || { echo "a release runs from main, not $GITHUB_REF_NAME"; exit 1; }
+          if git ls-remote --exit-code --tags origin "refs/tags/v$version" >/dev/null; then
+            echo "v$version is already tagged — bump VERSION"; exit 1
           fi
-          grep -qF "moonlight $props (" apps/Cli/Program.cs || { echo "Program.cs != $props"; exit 1; }
-          grep -qF "version = \"$props\"" flake.nix         || { echo "flake.nix != $props"; exit 1; }
-          echo "version=$props" >> "$GITHUB_OUTPUT"
 
   # The nine packages, and the one archive that is the same on every platform.
   managed:
@@ -116,8 +129,8 @@ jobs:
           dotnet publish apps/Cli -c Release -p:PublishAot=false -p:UseAppHost=false -o out/managed/app
           dotnet publish apps/Tui -c Release -p:PublishAot=false -p:UseAppHost=false -o out/managed/app
           dotnet out/managed/app/moonlight.dll version
-          dotnet out/managed/app/moonlight.dll version | grep -qF '(managed)' \
-            || { echo "the managed build does not say so"; exit 1; }
+          [ "$(dotnet out/managed/app/moonlight.dll version)" = "moonlight $VERSION (managed)" ] \
+            || { echo "expected: moonlight $VERSION (managed)"; exit 1; }
 
       # lib/ is the nine to reference; single/ is all nine layers in one assembly.
       # They are not interchangeable in one application — the types differ — which is
@@ -209,9 +222,9 @@ jobs:
 
       - name: Publish
         run: |
-          dotnet publish apps/Cli -c Release -r "$RID" -p:Version="$VERSION" -o out/cli
-          dotnet publish apps/Tui -c Release -r "$RID" -p:Version="$VERSION" -o out/tui
-          dotnet publish src/Core.Abi -c Release -r "$RID" -p:Version="$VERSION" -o out/abi
+          dotnet publish apps/Cli -c Release -r "$RID" -o out/cli
+          dotnet publish apps/Tui -c Release -r "$RID" -o out/tui
+          dotnet publish src/Core.Abi -c Release -r "$RID" -o out/abi
 
       # What ships is libmoonlight.*, one name in both build modes and on every
       # platform. The symbol bundle is named after the library, so it is renamed with
@@ -259,11 +272,11 @@ jobs:
             *)     suffix= ;;
           esac
           "out/cli/moonlight$suffix" version
-          "out/cli/moonlight$suffix" version | grep -qF '(nativeaot)' \
-            || { echo "the NativeAOT build does not say so"; exit 1; }
+          [ "$("out/cli/moonlight$suffix" version | tr -d '\r')" = "moonlight $VERSION (nativeaot)" ] \
+            || { echo "expected: moonlight $VERSION (nativeaot)"; exit 1; }
 
       - name: The demo
-        run: dotnet publish apps/Gui.Demo -c Release -r "$RID" --self-contained -p:Version="$VERSION" -o out/gui
+        run: dotnet publish apps/Gui.Demo -c Release -r "$RID" --self-contained -o out/gui
 
       # Three archives per platform: the applications with the library, the demo, and
       # the symbols. Symbols travel apart because most people downloading a wallet do
@@ -392,6 +405,11 @@ jobs:
       - name: The terminal interface's dependency
         run: dotnet build apps/Tui/Vendor/TerminalGui -c Release
 
+      # The constant `moonlight version` prints, written by apps/Cli's own target —
+      # bflat runs no MSBuild to do it.
+      - name: The version constant
+        run: dotnet msbuild apps/Cli/Cli.csproj -t:WriteBuildVersion -p:BuildVersionFile="$PWD/BuildVersion.g.cs" -nologo -v:q
+
       # Three, not four. bflat 8.0.2 cross-compiles a win-arm64 binary that is a valid
       # ARM64 image — right machine type, the same fourteen system imports the x64 one
       # resolves — and it exits 127 without printing anything on a Windows 11 ARM64
@@ -422,7 +440,7 @@ jobs:
 
             ./bflat/bflat build \
               $(find src apps/Cli -name '*.cs' -not -path '*/obj/*' -not -path '*/bin/*' -not -path '*/Core.Abi/*') \
-              GlobalUsings.cs --os "$os" --arch "$arch" $symbols -d BFLAT \
+              GlobalUsings.cs BuildVersion.g.cs --os "$os" --arch "$arch" $symbols -d BFLAT \
               -o "$dir/moonlight$suffix" $flags
 
             ./bflat/bflat build \
@@ -535,19 +553,22 @@ jobs:
           esac
           chmod +x "$PAYLOAD/moonlight$suffix" || true
           "$PAYLOAD/moonlight$suffix" version
-          "$PAYLOAD/moonlight$suffix" version | grep -qF '(bflat)' \
-            || { echo "the bflat build does not say so"; exit 1; }
+          [ "$("$PAYLOAD/moonlight$suffix" version | tr -d '\r')" = "moonlight $VERSION (bflat)" ] \
+            || { echo "expected: moonlight $VERSION (bflat)"; exit 1; }
           dotnet run --project tests/Abi.Native -c Release -- "$PAYLOAD/$lib" src/Core.Abi/moonlight.h
 
-  # Only a tag makes a Release, and only this job may write one.
+  # A draft, so nothing is public until the packages are up.
   release:
     needs: [verify, managed, nativeaot, bflat, bflat-smoke]
-    if: github.event_name == 'push'
+    if: inputs.publish
     runs-on: ubuntu-latest
+    environment: nuget
     permissions:
       contents: write
     env:
       VERSION: ${{ needs.verify.outputs.version }}
+      PRERELEASE: ${{ needs.verify.outputs.prerelease }}
+      GH_TOKEN: ${{ github.token }}
     steps:
       - uses: actions/checkout@v5
 
@@ -556,11 +577,11 @@ jobs:
           path: dist
           merge-multiple: true
 
-      # The tag's tree, without .git and without the donor clones under work/.
+      # The commit that was built, without .git and without the donor clones under work/.
       - name: The sources
         run: |
           git archive --format=tar.gz --prefix="moonlight-$VERSION/" \
-            -o "dist/moonlight-$VERSION-src.tar.gz" "$GITHUB_REF_NAME"
+            -o "dist/moonlight-$VERSION-src.tar.gz" "$GITHUB_SHA"
 
       # Every file the page carries, so a download can be checked.
       #
@@ -579,9 +600,61 @@ jobs:
           cat SHA256SUMS
           echo "files: $(ls | wc -l)"
 
-      - uses: softprops/action-gh-release@v2
+      # A run that stopped after this step left a draft of the same version; it goes,
+      # so there is only ever one. verify has made sure no published one exists.
+      - name: Draft Release
+        run: |
+          while [ "$(gh release view "v$VERSION" --json isDraft --jq .isDraft 2>/dev/null)" = true ]; do
+            gh release delete "v$VERSION" --yes
+          done
+          sed -n '/^---$/,$p' .github/release-notes-template.md | tail -n +2 \
+            | sed "s/<version>/$VERSION/g" > notes.md
+          flags=
+          [ "$PRERELEASE" = true ] && flags=--prerelease
+          gh release create "v$VERSION" dist/* --draft $flags \
+            --target "$GITHUB_SHA" --title "v$VERSION" --notes-file notes.md --generate-notes
+
+  # The same bytes the managed job packed and tested, then the Release goes public.
+  nuget:
+    needs: [verify, release]
+    if: inputs.publish
+    runs-on: ubuntu-latest
+    environment: nuget
+    permissions:
+      contents: write
+    env:
+      VERSION: ${{ needs.verify.outputs.version }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/setup-dotnet@v5
         with:
-          draft: true
-          prerelease: ${{ contains(github.ref_name, '-') }}
-          generate_release_notes: true
-          files: dist/*
+          dotnet-version: 10.0.x
+
+      - uses: actions/download-artifact@v7
+        with:
+          name: nuget
+          path: out/nuget
+
+      - name: Nine packages, all at this version
+        run: |
+          ls out/nuget
+          [ "$(ls out/nuget/*.nupkg  | wc -l)" -eq 9 ] || { echo "expected 9 .nupkg";  exit 1; }
+          [ "$(ls out/nuget/*.snupkg | wc -l)" -eq 9 ] || { echo "expected 9 .snupkg"; exit 1; }
+          for f in out/nuget/*.nupkg out/nuget/*.snupkg; do
+            case "${f##*/}" in
+              *".$VERSION."*) ;;
+              *) echo "${f##*/} is not version $VERSION"; exit 1 ;;
+            esac
+          done
+
+      # The .snupkg beside each .nupkg goes with it. --skip-duplicate makes a re-run
+      # after a partial push safe.
+      - name: Push to nuget.org
+        run: >
+          dotnet nuget push "out/nuget/*.nupkg"
+          --api-key "${{ secrets.NUGET_API_KEY }}"
+          --source https://api.nuget.org/v3/index.json
+          --skip-duplicate
+
+      - name: Publish the Release
+        run: gh release edit "v$VERSION" -R "$GITHUB_REPOSITORY" --draft=false

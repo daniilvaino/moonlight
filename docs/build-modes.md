@@ -35,7 +35,7 @@ purity gate on purpose.
 | the same, plus all three bflat artifacts | `bflat` — linux x64 and arm64 |
 | a hermetic build of the applications, the suite, the gate | `nix` — one runner per system the flake claims |
 | the purity gate, and that a sterile restore works with no network | `purity-gate` |
-| every artifact a release carries, each one run on a machine of its own kind | `release` — on a tag, and on demand |
+| every artifact a release carries, each one run on a machine of its own kind | `release` — by hand; with `publish` it also releases |
 
 `tests/Abi.Native` is the one thing that opens the door rather than testing the
 room behind it. It loads the shared library that was just built, looks up every
