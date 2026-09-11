@@ -11,7 +11,7 @@ $repos = @(
     @{ Dir = 'QRCoder';                   Url = 'https://github.com/Shane32/QRCoder.git' }
     @{ Dir = 'monero-csharp';             Url = 'https://github.com/btcpay-monero/monero-csharp.git' }
     @{ Dir = 'monero-lws-csharp';         Url = 'https://github.com/btcpay-monero/monero-lws-csharp.git' }
-    @{ Dir = 'ZkpSharp';                  Url = 'https://github.com/asagynbaev/ZkpSharp.git' }
+    @{ Dir = 'ZkpSharp';                  Url = 'https://github.com/asagynbaev/Tessera.git' }
     @{ Dir = 'monero';                    Url = 'https://github.com/monero-project/monero.git'; Recursive = $true }
     @{ Dir = 'monero-oxide';              Url = 'https://github.com/monero-oxide/monero-oxide.git' }
     @{ Dir = 'p2pool-consensus';          Url = 'https://github.com/P2Pool-Observer/consensus.git' }

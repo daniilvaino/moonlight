@@ -179,15 +179,15 @@ Point `MOONLIGHT_DAEMON` at a node and the chain tests run too: every block must
 
 Steal what is stealable; port what is not. Every `Vendor/` tree carries a `VENDORED.md` with the upstream commit and a full list of local changes.
 
-| donor                                   | licence                      | use                                            |
-|-----------------------------------------|------------------------------|------------------------------------------------|
-| MoneroRing                              | MIT                          | crypto layer — copied                          |
-| ref10, through MoneroRing               | public domain (Chaos.NaCl, djb) | field, group and scalar arithmetic — copied |
-| MoneroSharp                             | MIT                          | the English word list — copied, nothing else   |
-| Terminal.Gui (SharpOS fork), XtermSharp, QRCoder | MIT                | the TUI — copied                               |
-| monero-oxide                            | MIT (per crate, all checked) | Rust reference; BP+ transcript intermediates   |
-| monero                                  | BSD-3                        | vectors copied; src/ringct ported by hand      |
-| skunkworks, CantiLib, Determ            | GPL-3 / AGPL / undecided     | read only — never copied                       |
+| donor | licence | use |
+|---|---|---|
+| [MoneroRing](https://github.com/NeoSoft99/MoneroRing) | MIT | crypto layer — copied |
+| [ref10](https://bench.cr.yp.to/supercop.html), through MoneroRing | public domain ([Chaos.NaCl](https://github.com/CodesInChaos/Chaos.NaCl), djb) | field, group and scalar arithmetic — copied |
+| [MoneroSharp](https://github.com/rohanrhu/MoneroSharp) | MIT | the English word list — copied, nothing else |
+| [Terminal.Gui](https://github.com/tui-cs/Terminal.Gui) ([SharpOS fork](https://github.com/daniilvaino/SharpOS)), [XtermSharp](https://github.com/migueldeicaza/XtermSharp), [QRCoder](https://github.com/Shane32/QRCoder) | MIT | the TUI — copied |
+| [monero-oxide](https://github.com/monero-oxide/monero-oxide) | MIT (per crate, all checked) | Rust reference; BP+ transcript intermediates |
+| [monero](https://github.com/monero-project/monero) | BSD-3 | vectors copied; src/ringct ported by hand |
+| [skunkworks](https://github.com/SarangNoether/skunkworks), [CantiLib](https://github.com/BrandonT42/CantiLib), [Determ](https://github.com/StoyanDenev/decentralized-message-queue) | GPL-3 / AGPL / undecided | read only — never copied |
 
 `work/` holds the clones; `pwsh tools/clone-donors.ps1` fetches them all.
 
