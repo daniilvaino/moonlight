@@ -31,6 +31,33 @@ public class BlockTests
             Hex(BlockParser.ComputeId(Header202612, ids)));
     }
 
+    /// <summary>
+    /// The same block, read from the bytes the chain carries rather than from a
+    /// header typed in above and a list of identifiers in a text file.
+    ///
+    /// Those two were the whole of what proved this parser: the header was a literal
+    /// somebody transcribed, and the identifiers were already identifiers. Nothing
+    /// showed that <see cref="BlockParser.Parse"/> could read a real block at all —
+    /// its miner transaction, the count in front of the list, the list itself. This
+    /// does, and lands on the identifier the network recorded.
+    /// </summary>
+    [Fact]
+    public void Block202612ParsesFromTheChainsOwnBytes()
+    {
+        Block block = BlockParser.Parse(File.ReadAllBytes(Corpus.File("blocks", "block_202612_mainnet.bin")));
+
+        Assert.Equal(Header202612, block.Header);
+        Assert.True(block.MinerTransaction.IsCoinbase);
+        Assert.Equal(513, block.TransactionIds.Length);
+
+        // 514 with the miner transaction, which is what the tree is built over.
+        Assert.Equal(TransactionIds202612(), block.AllTransactionIds());
+
+        Assert.Equal(
+            "bbd604d2ba11ba27935e006ed39c9bfdd99b76bf4a50654bc1e1e61217962698",
+            Hex(BlockParser.ComputeId(block)));
+    }
+
     [Fact]
     public void MerkleRootIsStableAndOrderSensitive()
     {

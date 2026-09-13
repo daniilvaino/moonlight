@@ -14,6 +14,8 @@ What we have, where it came from, and what it can prove. Vectors before code.
 | `clsag/ring_data.json` | monero-oxide | MIT | the two rings that transaction was signed against, 16 members each |
 | `blocks/transactions.json` | monero-oxide | MIT | 5 real transactions with ids — 4 v2, 1 v1 |
 | `blocks/block_202612_transactions.txt` | monero-oxide | MIT | 514 transaction **ids** from block 202612 — the Merkle root and block id are checked against them |
+| `blocks/block_202612_mainnet.bin` | monero `tests/data/` | BSD-3 | the same block as the chain carries it, so the parser is read against real bytes and not a transcribed header |
+| `txs/*.bin` | monero `tests/data/` | BSD-3 | one real transaction of every format monero has had — v1, v1 after the third fork, v2 coinbase, RCT full, simple, Bulletproof, compact Bulletproof, CLSAG, Bulletproof+ |
 | `addresses/monero_addresses.json` | monero + monero-oxide | BSD-3, MIT | 4 real addresses: standard, integrated, subaddress |
 | `addresses/featured_addresses.json` | monero-oxide | MIT | 24 **Featured Addresses** — an unofficial extension with a flags byte, not consensus |
 
