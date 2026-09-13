@@ -98,6 +98,35 @@ public class VectorTests
             Equal(v[1], res);
         });
 
+    /// <summary>
+    /// The flag is not a result here, it is which map to use: every input appears
+    /// twice in the corpus, once under each, and the two give different points. The
+    /// true one is the biased map — the same <c>hash_to_ec</c> that
+    /// <see cref="BiasedHashToEc"/> replays 256 lines of — so it is replayed here
+    /// against the generator the corpus expects.
+    ///
+    /// The false one is a second map we do not have; it is FCMP++ groundwork, and
+    /// those hundred lines wait for it. Counted rather than skipped quietly, because
+    /// a filter that silently matches nothing is a test that passes for free.
+    /// </summary>
+    [Fact]
+    public void DeriveKeyImageGenerator()
+    {
+        int replayed = 0;
+
+        foreach (Vector v in TestVectors.Read("derive_key_image_generator"))
+        {
+            if (!v.Flag(1)) continue;
+
+            byte[] generator = new byte[32];
+            RingSig.hash_to_ec(v.Bytes(0), generator);
+            Equal(v[2], generator);
+            replayed++;
+        }
+
+        Assert.Equal(100, replayed);
+    }
+
     [Fact]
     public void DeriveViewTag()
         => Run("derive_view_tag", v =>

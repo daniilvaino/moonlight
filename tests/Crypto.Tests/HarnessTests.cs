@@ -59,8 +59,51 @@ public class HarnessTests
     [InlineData("check_signature", 512)]
     [InlineData("hash_to_point", 371)]
     [InlineData("generate_key_image", 256)]
+    [InlineData("point_to_wei_x_y", 200)]
+    [InlineData("derive_key_image_generator", 200)]
     [InlineData("derive_view_tag", 70)]
     [InlineData("check_ge_p3_identity", 6)]
     public void OperationCountsAreStable(string op, int count)
         => Assert.Equal(count, TestVectors.Read(op).Count());
+
+    /// <summary>
+    /// The coverage number the readme prints, counted instead of remembered.
+    ///
+    /// It used to be a figure kept by hand in two documents, and it drifted: half of
+    /// derive_key_image_generator was written off as unimplemented crypto when it was
+    /// the biased map we already had. A number nothing counts is a number that goes
+    /// stale in the direction that flatters nobody.
+    /// </summary>
+    [Fact]
+    public void ReplayedLinesAreTheNumberWePrint()
+    {
+        int total = TestVectors.All().Count;
+        int held = TestVectors.All().Count(NotReplayed);
+
+        Assert.Equal(5945, total);
+        Assert.Equal(306, held);
+        Assert.Equal(5639, total - held);
+    }
+
+    /// <summary>
+    /// Lines no test replays, and the reason each is held back. Every one of them is
+    /// still read and still checked against the grammar — held back means the
+    /// operation is not performed, not that the line is ignored.
+    /// </summary>
+    private static bool NotReplayed(Vector v) => v.Op switch
+    {
+        // The Ed25519 to Weierstrass map. FCMP++ groundwork, and there is nothing to
+        // implement it against until the fork.
+        "point_to_wei_x_y" => true,
+
+        // Needs the two identity probes from monero's crypto-tests.h, which are
+        // test-only helpers rather than library functions.
+        "check_ge_p3_identity" => true,
+
+        // The flag chooses the map rather than reporting a result. The biased half is
+        // replayed; the unbiased map is FCMP++ groundwork like the one above.
+        "derive_key_image_generator" => !v.Flag(1),
+
+        _ => false,
+    };
 }
