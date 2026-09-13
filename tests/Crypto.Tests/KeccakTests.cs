@@ -30,6 +30,34 @@ public class KeccakTests
         Assert.Equal(32, Keccak.Hash(data).Length);
     }
 
+    /// <summary>
+    /// Monero's own corpus for the hash it calls cn_fast_hash, from
+    /// <c>tests/hash/tests-fast.txt</c>: 321 inputs of every length from nothing
+    /// upwards, each with the digest monero produces for it.
+    ///
+    /// The three known answers above were chosen by hand and all of them are short.
+    /// These run past the 136-byte rate and well past twice it, which is where a
+    /// padding or absorb-loop mistake first shows.
+    /// </summary>
+    [Fact]
+    public void TheMoneroCorpus()
+    {
+        int replayed = 0;
+
+        foreach (string line in File.ReadLines(Moonlight.Tests.Corpus.File("hash", "keccak.txt")))
+        {
+            string[] field = line.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+            if (field.Length != 2) continue;
+
+            byte[] input = Convert.FromHexString(field[1] == "x" ? "" : field[1]);
+
+            Assert.Equal(field[0], Convert.ToHexString(Keccak.Hash(input)).ToLowerInvariant());
+            replayed++;
+        }
+
+        Assert.Equal(321, replayed);
+    }
+
     [Fact]
     public void SpanOverloadMatchesAllocating()
     {

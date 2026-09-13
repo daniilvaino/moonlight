@@ -47,7 +47,7 @@ public class Blake2bTests
         byte[]? message = null;
         byte[]? key = null;
 
-        foreach (string line in File.ReadLines(TestVectors.PathTo("hash", "blake2b.txt")))
+        foreach (string line in File.ReadLines(Moonlight.Tests.Corpus.File("hash", "blake2b.txt")))
         {
             string[] field = line.Split('\t', 2);
             if (field.Length != 2) continue;

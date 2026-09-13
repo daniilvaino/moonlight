@@ -8,6 +8,8 @@ What we have, where it came from, and what it can prove. Vectors before code.
 |---|---|---|---|
 | `tests.txt` | monero `tests/crypto/` | BSD-3 | 5945 lines, 20 operations, 8.3 MB |
 | `hash/blake2b.txt` | monero `tests/hash/` | BSD-3 | the official BLAKE2 vector set: 256 keyed digests, inputs of 0 to 255 bytes |
+| `hash/keccak.txt` | monero `tests/hash/` | BSD-3 | 321 digests of what monero calls `cn_fast_hash`, inputs from nothing to past twice the rate |
+| `hash/tree.txt` | monero `tests/hash/` | BSD-3 | 16 tree-hash roots, one for every count from a single hash to sixteen |
 | `clsag/clsag_tx.json` | monero-oxide | MIT | one real transaction with two CLSAG signatures, its Bulletproof+ fields and pseudo-outs |
 | `clsag/ring_data.json` | monero-oxide | MIT | the two rings that transaction was signed against, 16 members each |
 | `blocks/transactions.json` | monero-oxide | MIT | 5 real transactions with ids — 4 v2, 1 v1 |

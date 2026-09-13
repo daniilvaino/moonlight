@@ -60,10 +60,6 @@ public static class TestVectors
     public static IEnumerable<object[]> Cases(string op) =>
         Available ? Read(op).Select(v => new object[] { v }) : [];
 
-    /// <summary>Another corpus of monero's, beside <see cref="Path"/>.</summary>
-    public static string PathTo(params string[] parts)
-        => System.IO.Path.Combine([RepoRoot(), "tests", "vectors", .. parts]);
-
     private static string RepoRoot()
     {
         DirectoryInfo? dir = new(AppContext.BaseDirectory);
