@@ -116,15 +116,23 @@ public class VectorTests
 
         foreach (Vector v in TestVectors.Read("derive_key_image_generator"))
         {
-            if (!v.Flag(1)) continue;
+            byte[] generator;
 
-            byte[] generator = new byte[32];
-            RingSig.hash_to_ec(v.Bytes(0), generator);
+            if (v.Flag(1))
+            {
+                generator = new byte[32];
+                RingSig.hash_to_ec(v.Bytes(0), generator);
+            }
+            else
+            {
+                generator = Point.UnbiasedHashToEc(v.Bytes(0)).ToBytes();
+            }
+
             Equal(v[2], generator);
             replayed++;
         }
 
-        Assert.Equal(100, replayed);
+        Assert.Equal(200, replayed);
     }
 
     /// <summary>

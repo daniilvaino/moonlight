@@ -71,6 +71,40 @@ public readonly struct Point : IEquatable<Point>
         return new Point(bytes);
     }
 
+    /// <summary>
+    /// The unbiased map onto the curve, which is what FCMP++ derives a key image
+    /// generator with.
+    ///
+    /// <see cref="HashToEc"/> is biased: it takes one 32-byte digest, reads it as a
+    /// field element and maps that, so the points it can reach are not reached
+    /// equally often. This takes 64 bytes of BLAKE2b instead, maps each half, and
+    /// adds the two — a sum of two biased draws, which is not.
+    ///
+    /// The digest is BLAKE2b personalised with "Monero", not the plain function.
+    /// </summary>
+    public static Point UnbiasedHashToEc(ReadOnlySpan<byte> data)
+    {
+        byte[] digest = Blake2b.Monero(data);
+
+        return EightTimesFieldElement(digest.AsSpan(0, Size)) + EightTimesFieldElement(digest.AsSpan(Size, Size));
+    }
+
+    /// <summary>
+    /// Bytes read as a field element, mapped to the curve, and multiplied by eight to
+    /// land in the prime-order subgroup. <see cref="FromHash"/> is the same map
+    /// without the eight, which is a different function and a valid point either way.
+    /// </summary>
+    private static Point EightTimesFieldElement(ReadOnlySpan<byte> bytes)
+    {
+        RingSig.ge_fromfe_frombytes_vartime(out GroupElementP2 mapped, bytes.ToArray());
+        RingSig.ge_mul8(out GroupElementP1P1 eight, ref mapped);
+        GroupOperations.ge_p1p1_to_p3(out GroupElementP3 point, ref eight);
+
+        byte[] result = new byte[Size];
+        GroupOperations.ge_p3_tobytes(result, 0, ref point);
+        return new Point(result);
+    }
+
     /// <summary>The key image of an output: secret · H(pub).</summary>
     public static Point KeyImage(Point publicKey, Scalar secret)
     {

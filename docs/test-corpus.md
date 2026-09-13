@@ -29,13 +29,14 @@ What we have, where it came from, and what it can prove. Vectors before code.
 | `hash_to_scalar` | 256 | | `check_ge_p3_identity` | 6 |
 | `generate_signature` | 256 | | `generate_ring_signature` | 256 |
 
-### Coverage: 5845 of 5945 replayed (98%)
+### Coverage: 5945 of 5945 replayed
 
-That number is counted, not remembered: `HarnessTests.ReplayedLinesAreTheNumberWePrint`
-holds the list of what is not replayed and asserts the arithmetic. It is written down
-that way because the hand-kept version drifted — see the note under the table.
+Every line of monero's corpus, every operation, performed and compared.
 
-Every operation is replayed line by line. What is left is half of one of them.
+The number is counted, not remembered: `HarnessTests.EveryLineIsReplayed` holds the
+list of what is held back — empty — and asserts it against the file. It is written
+that way because the hand-kept version drifted, and drifted in the flattering
+direction: a hundred lines were recorded as impossible when nobody had tried them.
 
 The generating four — `random_scalar`, `generate_keys`, `generate_signature` and
 `generate_ring_signature`, 1013 lines — record the bytes monero's reference drew from a
@@ -49,9 +50,19 @@ have to be replayed together in file order. Drawing a different number of bytes 
 reference did desynchronises everything after it — so this checks the draw pattern as
 well as the arithmetic, and our generators produce byte-identical output to monero's.
 
-| operation | lines | why not replayed |
-|---|---:|---|
-| `derive_key_image_generator`, the unbiased half | 100 | Its hash is BLAKE2b, which this repository does not have. |
+Three groups were held back for most of the corpus's life. Each turned out to be
+smaller than its entry said.
+
+`derive_key_image_generator` was the last of them, and the only one that needed a new
+primitive: the unbiased map hashes with **BLAKE2b**, so `src/Crypto/Blake2b.cs` is
+RFC 7693, checked against the RFC's own vectors before it was pointed at anything of
+monero's. Monero does not call it unpersonalised — `blake2b_monero` writes "Monero"
+into the personalisation field of the parameter block, which changes the initial state
+and every digest after it. Both forms are pinned in `Blake2bTests`, because a parameter
+block assembled wrongly still produces a perfectly stable wrong answer.
+
+With the hash in place the map is what the reference does: 64 bytes of digest, each
+half through `ge_fromfe_frombytes_vartime` and `ge_mul8`, and the two points added.
 
 `check_ge_p3_identity` was held back for needing test-only helpers from monero's
 `crypto-tests.h`. Test-only is where they belong, so they were written there. Monero
@@ -92,10 +103,6 @@ input decodes to a point (nearly all of them do under both), and it is not wheth
 point is free of torsion (multiplying by the group order does not sort them either).
 Monero settles it — the parameter is named `biased` there.
 
-What is left of it is the unbiased map: BLAKE2b-512 over the input, both halves of the
-digest through `ge_fromfe_frombytes_vartime` and `ge_mul8`, and the two points added.
-Everything but BLAKE2b is already here.
-
 The grammar (which arguments each operation takes, including the three that append an
 expected value only when the preceding boolean is true, and the two ring operations that
 size themselves from a count) is transcribed from the reference runner
@@ -123,7 +130,7 @@ in code. The plan is to run them and capture the intermediate values.
 
 | project | today |
 |---|---|
-| `Crypto.Tests` | harness + grammar over all 5945 lines; Keccak; VarInt; 5845 replayed vectors, generators included; round-trip and typed-API tests on top (61) |
+| `Crypto.Tests` | harness + grammar over all 5945 lines; Keccak; VarInt; all 5945 vectors replayed, generators included; round-trip and typed-API tests on top (61) |
 | `Serialization.Tests` | corpus integrity; TxParser, TxHash and TxExtra against 5 real transactions; MerkleTree and BlockParser against block 202612; Epee against monero's own byte vectors (42) |
 | `RingCT.Tests` | Pedersen, ECDH, CLSAG sign/verify, two real monero-made CLSAG signatures verified against their rings, the real Bulletproof+ range proof from the same transaction, and our own prover checked against that verifier (61) |
 | `Wallet.Tests` | Base58, addresses, mnemonic, key derivation, subaddresses and restore height — anchored on the seed monero's own functional tests restore; the scanner finding the change output of a real mainnet transaction, and the same output again in a pruned one; balance, locking and spend detection; the sync engine driven by hand with no socket open, settling a restore date included; the C interface called the way C calls it; the settings fingerprint pinned to a wallet on disk (151) |

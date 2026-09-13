@@ -69,34 +69,29 @@ public class HarnessTests
     /// <summary>
     /// The coverage number the readme prints, counted instead of remembered.
     ///
-    /// It used to be a figure kept by hand in two documents, and it drifted: half of
-    /// derive_key_image_generator was written off as unimplemented crypto when it was
-    /// the biased map we already had. A number nothing counts is a number that goes
-    /// stale in the direction that flatters nobody.
+    /// It is all of them now, so the part of this worth reading is the empty list
+    /// below rather than the arithmetic. It stays because the number was once kept by
+    /// hand in two documents and drifted there: half of derive_key_image_generator
+    /// was written off as unimplemented crypto when it was a map we already had. A
+    /// number nothing counts goes stale in the direction that flatters nobody.
     /// </summary>
     [Fact]
-    public void ReplayedLinesAreTheNumberWePrint()
+    public void EveryLineIsReplayed()
     {
         int total = TestVectors.All().Count;
         int held = TestVectors.All().Count(NotReplayed);
 
         Assert.Equal(5945, total);
-        Assert.Equal(100, held);
-        Assert.Equal(5845, total - held);
+        Assert.Equal(0, held);
     }
 
     /// <summary>
-    /// Lines no test replays, and the reason each is held back. Every one of them is
-    /// still read and still checked against the grammar — held back means the
-    /// operation is not performed, not that the line is ignored.
+    /// Lines no test replays, and why. There are none: every operation the corpus
+    /// contains is performed and its result compared. Anything held back in future
+    /// belongs here with its reason, so the readme's number stays a counted one.
     /// </summary>
     private static bool NotReplayed(Vector v) => v.Op switch
     {
-        // The flag chooses the map rather than reporting a result — monero names the
-        // parameter `biased`. The biased map is the hash_to_ec we have; the unbiased
-        // one hashes with BLAKE2b, which this repository does not have yet.
-        "derive_key_image_generator" => !v.Flag(1),
-
         _ => false,
     };
 }
