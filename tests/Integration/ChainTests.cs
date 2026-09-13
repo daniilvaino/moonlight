@@ -13,17 +13,17 @@ public class ChainTests
 {
     private static readonly string? Address = Environment.GetEnvironmentVariable("MOONLIGHT_DAEMON");
 
-    private static DaemonClient? Connect() => Address is null ? null : new DaemonClient(new Uri(Address));
+    /// <summary>The address is there: <see cref="DaemonFactAttribute"/> saw to it.</summary>
+    private static DaemonClient Connect() => new(new Uri(Address!));
 
     /// <summary>
     /// A date maps to the first block at or after it. The offline estimate must
     /// land at or before that block — early is recoverable, late is not.
     /// </summary>
-    [Fact]
+    [DaemonFact]
     public async Task RestoreHeightAgreesWithTheChain()
     {
-        using DaemonClient? client = Connect();
-        if (client is null) return;
+        using DaemonClient client = Connect();
 
         foreach (DateTimeOffset date in new[]
         {
@@ -40,11 +40,10 @@ public class ChainTests
         }
     }
 
-    [Fact]
+    [DaemonFact]
     public async Task ReportsAHeight()
     {
-        using DaemonClient? client = Connect();
-        if (client is null) return;
+        using DaemonClient client = Connect();
 
         Assert.True(await client.GetHeightAsync() > 0);
     }
@@ -54,11 +53,10 @@ public class ChainTests
     /// last byte, and every transaction in it must hash to the id the daemon
     /// listed. Downloaded blocks are the only corpus that grows on its own.
     /// </summary>
-    [Fact]
+    [DaemonFact]
     public async Task BlocksParseAndTheirTransactionsHashCorrectly()
     {
-        using DaemonClient? client = Connect();
-        if (client is null) return;
+        using DaemonClient client = Connect();
 
         ulong height = await client.GetHeightAsync();
         int checkedTransactions = 0;
