@@ -81,8 +81,8 @@ public class HarnessTests
         int held = TestVectors.All().Count(NotReplayed);
 
         Assert.Equal(5945, total);
-        Assert.Equal(306, held);
-        Assert.Equal(5639, total - held);
+        Assert.Equal(100, held);
+        Assert.Equal(5845, total - held);
     }
 
     /// <summary>
@@ -92,16 +92,9 @@ public class HarnessTests
     /// </summary>
     private static bool NotReplayed(Vector v) => v.Op switch
     {
-        // The Ed25519 to Weierstrass map. FCMP++ groundwork, and there is nothing to
-        // implement it against until the fork.
-        "point_to_wei_x_y" => true,
-
-        // Needs the two identity probes from monero's crypto-tests.h, which are
-        // test-only helpers rather than library functions.
-        "check_ge_p3_identity" => true,
-
-        // The flag chooses the map rather than reporting a result. The biased half is
-        // replayed; the unbiased map is FCMP++ groundwork like the one above.
+        // The flag chooses the map rather than reporting a result — monero names the
+        // parameter `biased`. The biased map is the hash_to_ec we have; the unbiased
+        // one hashes with BLAKE2b, which this repository does not have yet.
         "derive_key_image_generator" => !v.Flag(1),
 
         _ => false,

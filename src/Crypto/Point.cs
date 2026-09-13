@@ -150,6 +150,71 @@ public readonly struct Point : IEquatable<Point>
 
     public bool IsIdentity => Equals(Identity);
 
+    /// <summary>A/3 and the square root of -(A+2), little endian as the field reads them.</summary>
+    private static readonly byte[] AOverThree =
+        Convert.FromHexString("5124adaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa2a");
+
+    private static readonly byte[] RootOfMinusAPlusTwo =
+        Convert.FromHexString("e781ba0055fb91337de582b42e2c5e3a81b003fc23f7842d44f95f9f0b12d970");
+
+    /// <summary>
+    /// The same point in short Weierstrass coordinates. Ed25519 and the curve FCMP++
+    /// builds its proofs over are one curve under two names, and the map between the
+    /// two forms is birational — the same points, differently written:
+    ///
+    /// <code>
+    ///   wei_x = (1+y)/(1-y) + A/3
+    ///   wei_y = c * (1+y) / ((1-y)*x)      A = 486662, c = sqrt(-(A+2))
+    /// </code>
+    ///
+    /// From draft-ietf-lwig-curve-representations-02 E.2, which is what monero
+    /// follows.
+    ///
+    /// False where the map has nothing to say. At the identity y is 1, so 1-y is
+    /// zero; at the point of order two x is zero, so (1-y)*x is. Inverting zero in
+    /// this field yields zero rather than throwing, so both cases would otherwise
+    /// come back as a pair of coordinates that look like an answer and are not.
+    ///
+    /// Monero's own caller is expected to hand this a point already cleared of
+    /// torsion, and asserts it only in a debug build. That is not checked here
+    /// either — cheaply it cannot be — so a torsioned point still maps to a pair
+    /// that means nothing. The two cases above are the ones that can be caught for
+    /// free, and they are.
+    /// </summary>
+    public bool TryToWeierstrass(out byte[] weiX, out byte[] weiY)
+    {
+        weiX = [];
+        weiY = [];
+
+        // Decompression leaves Z as 1, so X and Y are already the affine coordinates.
+        if (RingSig.ge_frombytes_vartime(out GroupElementP3 point, Bytes) != 0) return false;
+
+        FieldOperations.fe_1(out FieldElement one);
+        FieldOperations.fe_add(out FieldElement onePlusY, ref one, ref point.Y);
+        FieldOperations.fe_sub(out FieldElement oneMinusY, ref one, ref point.Y);
+        FieldOperations.fe_mul(out FieldElement oneMinusYtimesX, ref oneMinusY, ref point.X);
+
+        if (FieldOperations.fe_isnonzero(ref oneMinusY) == 0) return false;
+        if (FieldOperations.fe_isnonzero(ref oneMinusYtimesX) == 0) return false;
+
+        FieldOperations.fe_invert(out FieldElement invOneMinusY, ref oneMinusY);
+        FieldOperations.fe_invert(out FieldElement invOneMinusYtimesX, ref oneMinusYtimesX);
+        FieldOperations.fe_frombytes(out FieldElement aOverThree, AOverThree, 0);
+        FieldOperations.fe_frombytes(out FieldElement c, RootOfMinusAPlusTwo, 0);
+
+        FieldOperations.fe_mul(out FieldElement ratio, ref onePlusY, ref invOneMinusY);
+        FieldOperations.fe_add(out FieldElement x, ref ratio, ref aOverThree);
+
+        FieldOperations.fe_mul(out FieldElement scaled, ref c, ref onePlusY);
+        FieldOperations.fe_mul(out FieldElement y, ref scaled, ref invOneMinusYtimesX);
+
+        weiX = new byte[Size];
+        weiY = new byte[Size];
+        FieldOperations.fe_tobytes(weiX, 0, ref x);
+        FieldOperations.fe_tobytes(weiY, 0, ref y);
+        return true;
+    }
+
     public byte[] ToBytes() => Bytes.AsSpan().ToArray();
 
     public bool Equals(Point other) => Bytes.AsSpan().SequenceEqual(other.Bytes);

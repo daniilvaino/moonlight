@@ -127,10 +127,99 @@ public class VectorTests
         Assert.Equal(100, replayed);
     }
 
+    /// <summary>
+    /// Ed25519 written in the Weierstrass form FCMP++ proves over. The corpus gives
+    /// the point and both coordinates, so this checks the whole map and not only
+    /// that it produced something of the right length.
+    /// </summary>
+    [Fact]
+    public void PointToWeierstrass()
+        => Run("point_to_wei_x_y", v =>
+        {
+            Assert.True(Point.TryFromBytes(v.Bytes(0), out Point point));
+            Assert.True(point.TryToWeierstrass(out byte[] x, out byte[] y));
+
+            Equal(v[1], x);
+            Equal(v[2], y);
+        });
+
     [Fact]
     public void DeriveViewTag()
         => Run("derive_view_tag", v =>
             Equal(v[2], [ViewTag.Derive(v.Bytes(0), v.OutputIndex(1))]));
+
+    /// <summary>
+    /// The one operation in the corpus that is about representation rather than
+    /// arithmetic, and the only reason it exists is to show a check that gets it
+    /// wrong.
+    ///
+    /// Monero builds ((K+K)-K)-K, which is the identity for every K, and asks two
+    /// questions of the result. The naive check reads the ten limbs of each
+    /// coordinate straight out of the structure: X and T all zero, Y equal to Z. It
+    /// answers false for three of these six points, because the limbs of a genuine
+    /// identity need not be the reduced ones. The correct check reduces first, and
+    /// says true every time.
+    ///
+    /// Replaying it pins something no other vector does: that our group arithmetic
+    /// produces the same intermediate representations as monero's, limb for limb,
+    /// and not merely the same points.
+    /// </summary>
+    [Fact]
+    public void CheckGeP3Identity()
+        => Run("check_ge_p3_identity", v =>
+        {
+            GroupElementP3 identity = IdentityByFourOperations(v.Bytes(0));
+
+            Assert.Equal(v.Flag(1), LimbsSayInfinity(identity));
+            Assert.Equal(v.Flag(2), ReducedSaysInfinity(identity));
+        });
+
+    /// <summary>(K + K) - K - K, in the p3 representation the operations leave behind.</summary>
+    private static GroupElementP3 IdentityByFourOperations(byte[] key)
+    {
+        RingSig.ge_frombytes_vartime(out GroupElementP3 p3, key);
+        GroupOperations.ge_p3_to_cached(out GroupElementCached cached, ref p3);
+
+        GroupOperations.ge_add(out GroupElementP1P1 step, ref p3, ref cached);
+        GroupOperations.ge_p1p1_to_p3(out p3, ref step);
+        GroupOperations.ge_sub(out step, ref p3, ref cached);
+        GroupOperations.ge_p1p1_to_p3(out p3, ref step);
+        GroupOperations.ge_sub(out step, ref p3, ref cached);
+        GroupOperations.ge_p1p1_to_p3(out p3, ref step);
+
+        return p3;
+    }
+
+    /// <summary>
+    /// Monero's broken check, reproduced as broken: the limbs are compared as they
+    /// sit, without being reduced mod q first.
+    /// </summary>
+    private static bool LimbsSayInfinity(GroupElementP3 p)
+    {
+        int[] x = Limbs(p.X), y = Limbs(p.Y), z = Limbs(p.Z), t = Limbs(p.T);
+
+        for (int i = 0; i < 10; i++)
+        {
+            if ((x[i] | t[i]) != 0 || y[i] != z[i]) return false;
+        }
+
+        return true;
+    }
+
+    /// <summary>
+    /// The answer that is right. Encoding reduces, so a point that compresses to the
+    /// identity is the identity however its limbs happen to be arranged.
+    /// </summary>
+    private static bool ReducedSaysInfinity(GroupElementP3 p)
+    {
+        byte[] bytes = new byte[32];
+        GroupOperations.ge_p3_tobytes(bytes, 0, ref p);
+
+        return Point.FromBytes(bytes).IsIdentity;
+    }
+
+    private static int[] Limbs(FieldElement f)
+        => [f.x0, f.x1, f.x2, f.x3, f.x4, f.x5, f.x6, f.x7, f.x8, f.x9];
 
     [Fact]
     public void CheckSignature()
