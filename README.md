@@ -10,7 +10,7 @@
   <img src="https://img.shields.io/badge/pure_c%23-100%25-7c3aed?style=flat-square&labelColor=30363d" alt="pure C#: 100%">
   <img src="https://img.shields.io/badge/p%2Finvoke-0-7c3aed?style=flat-square&labelColor=30363d" alt="P/Invoke: 0">
   <img src="https://img.shields.io/badge/packages-0-7c3aed?style=flat-square&labelColor=30363d" alt="packages: 0">
-  <img src="https://img.shields.io/badge/vectors-5945%2F5945-7c3aed?style=flat-square&labelColor=30363d" alt="vectors replayed: 5945 of 5945">
+  <img src="https://img.shields.io/badge/vectors-6538%2F6538-7c3aed?style=flat-square&labelColor=30363d" alt="vectors replayed: 6538 of 6538">
   <img src="https://img.shields.io/badge/license-MIT-4b5563?style=flat-square&labelColor=30363d" alt="license: MIT">
 </p>
 
@@ -171,7 +171,7 @@ Caught up to the mainnet tip, with a payment found — every byte of that scan d
 
 ## Tests
 
-Vectors before code. The harness for monero's `tests/crypto/tests.txt` was the first thing committed, so every crypto file since is born under the whole corpus: 5945 lines, 20 operations, every one of them replayed line by line — including monero's deterministic test generator, reproduced byte for byte, draw pattern included. Corpus tests assert the vector files themselves are intact, because a truncated vector file is the one failure that makes every later test pass for free. Inventory in [docs/test-corpus.md](docs/test-corpus.md).
+Vectors before code. The harness for monero's `tests/crypto/tests.txt` was the first thing committed, so every crypto file since is born under the whole corpus: 5945 lines, 20 operations, every one of them replayed line by line — including monero's deterministic test generator, reproduced byte for byte, draw pattern included. Three more of monero's corpora sit beside it — the official BLAKE2 vectors, `cn_fast_hash`, and the tree hash at every count from one to sixteen — for 6538 in all, and the number on the badge is asserted against the files rather than kept by hand. Corpus tests assert the vector files themselves are intact, because a truncated vector file is the one failure that makes every later test pass for free. Inventory in [docs/test-corpus.md](docs/test-corpus.md).
 
 Point `MOONLIGHT_DAEMON` at a node and the chain tests run too: every block must parse to the last byte, every transaction must hash to the id the daemon listed.
 

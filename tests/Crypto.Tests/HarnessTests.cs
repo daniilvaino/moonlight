@@ -69,21 +69,39 @@ public class HarnessTests
     /// <summary>
     /// The coverage number the readme prints, counted instead of remembered.
     ///
-    /// It is all of them now, so the part of this worth reading is the empty list
-    /// below rather than the arithmetic. It stays because the number was once kept by
-    /// hand in two documents and drifted there: half of derive_key_image_generator
-    /// was written off as unimplemented crypto when it was a map we already had. A
-    /// number nothing counts goes stale in the direction that flatters nobody.
+    /// Every line of every line-oriented corpus is replayed, so the parts worth
+    /// reading are the empty held-back list below and the fact that this counts all
+    /// four files rather than the first one. It has drifted twice already: once when
+    /// half of derive_key_image_generator was written off as unimplemented crypto
+    /// that we in fact had, and once when three corpora were added beside the
+    /// original and the badge went on quoting the original alone.
     /// </summary>
     [Fact]
-    public void EveryLineIsReplayed()
+    public void EveryLineOfEveryCorpusIsReplayed()
     {
-        int total = TestVectors.All().Count;
-        int held = TestVectors.All().Count(NotReplayed);
+        Assert.Equal(0, TestVectors.All().Count(NotReplayed));
 
-        Assert.Equal(5945, total);
-        Assert.Equal(0, held);
+        (string What, int Lines)[] corpora =
+        [
+            ("monero's crypto corpus", TestVectors.All().Count),
+            ("BLAKE2b", Lines("hash/blake2b.txt", "hash:")),
+            ("Keccak", Lines("hash/keccak.txt")),
+            ("the tree hash", Lines("hash/tree.txt")),
+        ];
+
+        Assert.Equal([5945, 256, 321, 16], corpora.Select(c => c.Lines));
+        Assert.Equal(6538, corpora.Sum(c => c.Lines));
     }
+
+    /// <summary>
+    /// Vectors in a corpus: one per line, or one per line carrying
+    /// <paramref name="marker"/> where a vector spans several.
+    /// </summary>
+    private static int Lines(string file, string? marker = null)
+        => System.IO.File.ReadLines(Moonlight.Tests.Corpus.File(file.Split('/')))
+            .Count(line => marker is null
+                ? line.Trim().Length > 0
+                : line.StartsWith(marker, StringComparison.Ordinal));
 
     /// <summary>
     /// Lines no test replays, and why. There are none: every operation the corpus

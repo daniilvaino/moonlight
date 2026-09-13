@@ -34,14 +34,25 @@ What we have, where it came from, and what it can prove. Vectors before code.
 | `hash_to_scalar` | 256 | | `check_ge_p3_identity` | 6 |
 | `generate_signature` | 256 | | `generate_ring_signature` | 256 |
 
-### Coverage: 5945 of 5945 replayed
+### Coverage: 6538 of 6538 replayed
 
-Every line of monero's corpus, every operation, performed and compared.
+| corpus | vectors |
+|---|---:|
+| monero's crypto corpus, `tests.txt` | 5945 |
+| Keccak, `hash/keccak.txt` | 321 |
+| BLAKE2b, `hash/blake2b.txt` | 256 |
+| the tree hash, `hash/tree.txt` | 16 |
 
-The number is counted, not remembered: `HarnessTests.EveryLineIsReplayed` holds the
-list of what is held back — empty — and asserts it against the file. It is written
-that way because the hand-kept version drifted, and drifted in the flattering
-direction: a hundred lines were recorded as impossible when nobody had tried them.
+Every line of every one of them, performed and compared. The fixtures — the
+transactions, the block, the addresses, the CLSAG and Bulletproof+ data — are not
+counted here; they are not lines, and the sections below say what each proves.
+
+The number is counted, not remembered:
+`HarnessTests.EveryLineOfEveryCorpusIsReplayed` reads all four files, asserts each
+count and the total, and holds the list of what is held back, which is empty. It is
+written that way because the hand-kept version drifted twice — once by recording a
+hundred lines as impossible when nobody had tried them, and once by going on quoting
+`tests.txt` alone after three corpora were added beside it.
 
 The generating four — `random_scalar`, `generate_keys`, `generate_signature` and
 `generate_ring_signature`, 1013 lines — record the bytes monero's reference drew from a
@@ -143,7 +154,7 @@ in code. The plan is to run them and capture the intermediate values.
 
 | project | today |
 |---|---|
-| `Crypto.Tests` | harness + grammar over all 5945 lines; Keccak; VarInt; all 5945 vectors replayed, generators included; round-trip and typed-API tests on top (61) |
+| `Crypto.Tests` | harness + grammar over all 5945 lines of `tests.txt`, every one of them replayed with the generators included; the Keccak and BLAKE2b corpora beside it; VarInt; round-trip and typed-API tests on top |
 | `Serialization.Tests` | corpus integrity; TxParser, TxHash and TxExtra against 5 real transactions; MerkleTree and BlockParser against block 202612; Epee against monero's own byte vectors (42) |
 | `RingCT.Tests` | Pedersen, ECDH, CLSAG sign/verify, two real monero-made CLSAG signatures verified against their rings, the real Bulletproof+ range proof from the same transaction, and our own prover checked against that verifier (61) |
 | `Wallet.Tests` | Base58, addresses, mnemonic, key derivation, subaddresses and restore height — anchored on the seed monero's own functional tests restore; the scanner finding the change output of a real mainnet transaction, and the same output again in a pruned one; balance, locking and spend detection; the sync engine driven by hand with no socket open, settling a restore date included; the C interface called the way C calls it; the settings fingerprint pinned to a wallet on disk (151) |
