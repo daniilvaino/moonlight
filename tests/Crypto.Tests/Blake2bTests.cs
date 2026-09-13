@@ -12,6 +12,62 @@ public class Blake2bTests
 {
     private static string Hex(byte[] bytes) => Convert.ToHexString(bytes).ToLowerInvariant();
 
+    /// <summary>
+    /// The official BLAKE2 vector set, as monero carries it in
+    /// <c>tests/hash/tests-blake2b.txt</c>: 256 keyed digests whose inputs run from
+    /// nothing to 255 bytes, one length at a time.
+    ///
+    /// That sweep is the point. It crosses every boundary a block-based hash can get
+    /// wrong — the empty message, the last byte before a block, the block exactly
+    /// full, the first byte after it, and the same again at two blocks — and it does
+    /// so with a key, which puts a whole block in front of the message and shifts all
+    /// of those by 128.
+    /// </summary>
+    [Fact]
+    public void TheOfficialVectors()
+    {
+        int replayed = 0;
+
+        foreach ((byte[] message, byte[] key, string expected) in Corpus())
+        {
+            Assert.Equal(expected, Hex(Blake2b.Hash(message, key: key)));
+            replayed++;
+        }
+
+        Assert.Equal(256, replayed);
+    }
+
+    /// <summary>
+    /// Blocks of "in:", "key:" and "hash:", one field per line. An input of nothing is
+    /// an empty value rather than an absent line, which is why the parse keys off the
+    /// prefix and not off the line being non-empty.
+    /// </summary>
+    private static IEnumerable<(byte[] Message, byte[] Key, string Hash)> Corpus()
+    {
+        byte[]? message = null;
+        byte[]? key = null;
+
+        foreach (string line in File.ReadLines(TestVectors.PathTo("hash", "blake2b.txt")))
+        {
+            string[] field = line.Split('\t', 2);
+            if (field.Length != 2) continue;
+
+            switch (field[0])
+            {
+                case "in:": message = Convert.FromHexString(field[1].Trim()); break;
+                case "key:": key = Convert.FromHexString(field[1].Trim()); break;
+                case "hash:":
+                    Assert.NotNull(message);
+                    Assert.NotNull(key);
+                    yield return (message, key, field[1].Trim());
+                    message = null;
+                    key = null;
+                    break;
+                default: break;
+            }
+        }
+    }
+
     /// <summary>RFC 7693, Appendix A: BLAKE2b-512 of "abc".</summary>
     [Fact]
     public void TheRfcVector()

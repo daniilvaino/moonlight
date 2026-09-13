@@ -7,6 +7,7 @@ What we have, where it came from, and what it can prove. Vectors before code.
 | file | source | licence | contents |
 |---|---|---|---|
 | `tests.txt` | monero `tests/crypto/` | BSD-3 | 5945 lines, 20 operations, 8.3 MB |
+| `hash/blake2b.txt` | monero `tests/hash/` | BSD-3 | the official BLAKE2 vector set: 256 keyed digests, inputs of 0 to 255 bytes |
 | `clsag/clsag_tx.json` | monero-oxide | MIT | one real transaction with two CLSAG signatures, its Bulletproof+ fields and pseudo-outs |
 | `clsag/ring_data.json` | monero-oxide | MIT | the two rings that transaction was signed against, 16 members each |
 | `blocks/transactions.json` | monero-oxide | MIT | 5 real transactions with ids — 4 v2, 1 v1 |
@@ -55,11 +56,19 @@ smaller than its entry said.
 
 `derive_key_image_generator` was the last of them, and the only one that needed a new
 primitive: the unbiased map hashes with **BLAKE2b**, so `src/Crypto/Blake2b.cs` is
-RFC 7693, checked against the RFC's own vectors before it was pointed at anything of
-monero's. Monero does not call it unpersonalised — `blake2b_monero` writes "Monero"
+RFC 7693. Monero does not call it unpersonalised — `blake2b_monero` writes "Monero"
 into the personalisation field of the parameter block, which changes the initial state
 and every digest after it. Both forms are pinned in `Blake2bTests`, because a parameter
 block assembled wrongly still produces a perfectly stable wrong answer.
+
+The compression function itself answers to the official vector set, `hash/blake2b.txt`
+above: 256 keyed digests with inputs from nothing to 255 bytes, one length at a time.
+The sweep is what makes it worth having — it crosses every boundary a block-based hash
+can get wrong, the empty message, the byte before a block, the block exactly full, the
+byte after it, and does it all again shifted by 128 because a key occupies a block of
+its own in front of the message. Nothing here passes a key; the branch exists because
+that is the branch the vectors exercise, and a covered branch is better attested than
+the one the wallet calls.
 
 With the hash in place the map is what the reference does: 64 bytes of digest, each
 half through `ge_fromfe_frombytes_vartime` and `ge_mul8`, and the two points added.

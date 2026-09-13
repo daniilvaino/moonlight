@@ -47,18 +47,29 @@ public static class Blake2b
         14, 10,  4,  8,  9, 15, 13,  6,  1, 12,  0,  2, 11,  7,  5,  3,
     ];
 
+    public const int MaxKeySize = 64;
+
     /// <summary>BLAKE2b with monero's personalisation and a full 64-byte digest.</summary>
-    public static byte[] Monero(ReadOnlySpan<byte> data) => Hash(data, MaxHashSize, MoneroPersonal);
+    public static byte[] Monero(ReadOnlySpan<byte> data) => Hash(data, personal: MoneroPersonal);
 
     /// <summary>
     /// BLAKE2b of <paramref name="data"/>, <paramref name="length"/> bytes of digest,
-    /// optionally personalised. No keyed mode: nothing here needs one, and an unused
-    /// branch through a hash is a place for a mistake to sit unnoticed.
+    /// optionally keyed and optionally personalised.
+    ///
+    /// Nothing in this repository passes a key. It is here because the keyed function
+    /// is what the official vector set exercises — 256 of them, inputs from nothing to
+    /// 255 bytes — and a branch covered by those is better attested than the one the
+    /// wallet actually calls.
     /// </summary>
-    public static byte[] Hash(ReadOnlySpan<byte> data, int length = MaxHashSize, ReadOnlySpan<byte> personal = default)
+    public static byte[] Hash(
+        ReadOnlySpan<byte> data,
+        int length = MaxHashSize,
+        ReadOnlySpan<byte> key = default,
+        ReadOnlySpan<byte> personal = default)
     {
         ArgumentOutOfRangeException.ThrowIfLessThan(length, 1);
         ArgumentOutOfRangeException.ThrowIfGreaterThan(length, MaxHashSize);
+        ArgumentOutOfRangeException.ThrowIfGreaterThan(key.Length, MaxKeySize);
         ArgumentOutOfRangeException.ThrowIfGreaterThan(personal.Length, PersonalSize);
 
         // The parameter block is 64 bytes read as eight little-endian words and xored
@@ -66,8 +77,8 @@ public static class Blake2b
         // part of the state before a byte of the message is.
         Span<byte> parameters = stackalloc byte[64];
         parameters.Clear();
-        parameters[0] = (byte)length;   // digest length
-        parameters[1] = 0;              // key length: unkeyed
+        parameters[0] = (byte)length;
+        parameters[1] = (byte)key.Length;
         parameters[2] = 1;              // fanout
         parameters[3] = 1;              // depth
         personal.CopyTo(parameters[48..]);
@@ -78,10 +89,31 @@ public static class Blake2b
             state[i] = IV[i] ^ BinaryPrimitives.ReadUInt64LittleEndian(parameters.Slice(i * 8, 8));
         }
 
+        ulong counted = 0;
+
+        // A key is a whole block of its own in front of the message, zero-padded, and
+        // it counts towards the length like any other. With no message it is also the
+        // last block — and its counter still reads a full 128 rather than the length
+        // of the key.
+        if (!key.IsEmpty)
+        {
+            Span<byte> keyBlock = stackalloc byte[BlockSize];
+            keyBlock.Clear();
+            key.CopyTo(keyBlock);
+            counted = BlockSize;
+
+            if (data.IsEmpty)
+            {
+                Compress(state, keyBlock, counted, last: true);
+                return Digest(state, length);
+            }
+
+            Compress(state, keyBlock, counted, last: false);
+        }
+
         // Strictly more than a block, not at least: the final compression must be the
         // one carrying the last bytes, and a message of exactly 128 has them in its
         // only block. Compressing that block early would finalise over nothing.
-        ulong counted = 0;
         int offset = 0;
         while (data.Length - offset > BlockSize)
         {
@@ -96,6 +128,11 @@ public static class Blake2b
         counted += (ulong)(data.Length - offset);
         Compress(state, tail, counted, last: true);
 
+        return Digest(state, length);
+    }
+
+    private static byte[] Digest(ReadOnlySpan<ulong> state, int length)
+    {
         Span<byte> digest = stackalloc byte[MaxHashSize];
         for (int i = 0; i < 8; i++)
         {
