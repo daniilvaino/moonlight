@@ -29,13 +29,13 @@ What we have, where it came from, and what it can prove. Vectors before code.
 | `hash_to_scalar` | 256 | | `check_ge_p3_identity` | 6 |
 | `generate_signature` | 256 | | `generate_ring_signature` | 256 |
 
-### Coverage: 5639 of 5945 replayed (95%)
+### Coverage: 5845 of 5945 replayed (98%)
 
 That number is counted, not remembered: `HarnessTests.ReplayedLinesAreTheNumberWePrint`
 holds the list of what is not replayed and asserts the arithmetic. It is written down
 that way because the hand-kept version drifted — see the note under the table.
 
-Every operation is replayed line by line except three groups.
+Every operation is replayed line by line. What is left is half of one of them.
 
 The generating four — `random_scalar`, `generate_keys`, `generate_signature` and
 `generate_ring_signature`, 1013 lines — record the bytes monero's reference drew from a
@@ -51,9 +51,33 @@ well as the arithmetic, and our generators produce byte-identical output to mone
 
 | operation | lines | why not replayed |
 |---|---:|---|
-| `point_to_wei_x_y` | 200 | The Ed25519 to Weierstrass map. FCMP++ groundwork, and nothing to implement it against until the fork. |
-| `derive_key_image_generator`, the unbiased half | 100 | A second map onto the curve, which we do not have. FCMP++ groundwork as above. |
-| `check_ge_p3_identity` | 6 | Needs the two identity probes from `crypto-tests.h`, which are test-only helpers rather than library functions. |
+| `derive_key_image_generator`, the unbiased half | 100 | Its hash is BLAKE2b, which this repository does not have. |
+
+`check_ge_p3_identity` was held back for needing test-only helpers from monero's
+`crypto-tests.h`. Test-only is where they belong, so they were written there. Monero
+builds `((K+K)-K)-K` — the identity for any K — and asks two questions of the result:
+a naive check that reads the ten limbs of each coordinate as they sit, and a correct
+one that reduces first. The naive check answers **false for three of the six points**,
+because the limbs of a genuine identity need not be the reduced ones, and that
+disagreement is the whole point of the operation.
+
+It is the only vector in the corpus about representation rather than arithmetic, and
+replaying it pins something no other one does: that our group operations leave the same
+intermediate representations monero's do, limb for limb, and not merely the same points.
+
+`point_to_wei_x_y` used to be here as FCMP++ groundwork with nothing to implement
+against. It turned out to need no new primitive at all — only the field arithmetic
+already vendored. Ed25519 and the curve FCMP++ proves over are one curve under two
+names, and `Point.TryToWeierstrass` is the map between the forms, from
+[draft-ietf-lwig-curve-representations-02 E.2](https://www.ietf.org/archive/id/draft-ietf-lwig-curve-representations-02.pdf):
+
+```
+wei_x = (1+y)/(1-y) + A/3
+wei_y = c * (1+y) / ((1-y)*x)      A = 486662, c = sqrt(-(A+2))
+```
+
+Both coordinates of all 200 lines match. Vectors before code, in the order the phrase
+implies: the map is written down here first and the proofs that will use it come later.
 
 `derive_key_image_generator` used to be written off whole, on the reading that its
 middle argument said whether the operation had succeeded. It does not. Every input
@@ -66,6 +90,11 @@ lines were never blocked on anything — they were simply not being run. They ar
 Two readings were checked and discarded on the way to that: the flag is not whether the
 input decodes to a point (nearly all of them do under both), and it is not whether the
 point is free of torsion (multiplying by the group order does not sort them either).
+Monero settles it — the parameter is named `biased` there.
+
+What is left of it is the unbiased map: BLAKE2b-512 over the input, both halves of the
+digest through `ge_fromfe_frombytes_vartime` and `ge_mul8`, and the two points added.
+Everything but BLAKE2b is already here.
 
 The grammar (which arguments each operation takes, including the three that append an
 expected value only when the preceding boolean is true, and the two ring operations that
@@ -94,7 +123,7 @@ in code. The plan is to run them and capture the intermediate values.
 
 | project | today |
 |---|---|
-| `Crypto.Tests` | harness + grammar over all 5945 lines; Keccak; VarInt; 5639 replayed vectors, generators included; round-trip and typed-API tests on top (61) |
+| `Crypto.Tests` | harness + grammar over all 5945 lines; Keccak; VarInt; 5845 replayed vectors, generators included; round-trip and typed-API tests on top (61) |
 | `Serialization.Tests` | corpus integrity; TxParser, TxHash and TxExtra against 5 real transactions; MerkleTree and BlockParser against block 202612; Epee against monero's own byte vectors (42) |
 | `RingCT.Tests` | Pedersen, ECDH, CLSAG sign/verify, two real monero-made CLSAG signatures verified against their rings, the real Bulletproof+ range proof from the same transaction, and our own prover checked against that verifier (61) |
 | `Wallet.Tests` | Base58, addresses, mnemonic, key derivation, subaddresses and restore height — anchored on the seed monero's own functional tests restore; the scanner finding the change output of a real mainnet transaction, and the same output again in a pruned one; balance, locking and spend detection; the sync engine driven by hand with no socket open, settling a restore date included; the C interface called the way C calls it; the settings fingerprint pinned to a wallet on disk (151) |
